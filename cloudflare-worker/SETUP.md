@@ -104,7 +104,52 @@ wrangler secret delete BACKEND_URL
 
 ## Troubleshooting
 
-- **Worker can't reach backend**: Verify BACKEND_URL is correct and accessible
-- **403 Forbidden errors**: Check WEBHOOK_SECRET matches backend CF_WEBHOOK_SECRET
-- **404 Not Found**: Verify WEBHOOK_PATH is correct (`/api/webhooks/cloudflare`)
+### Common Issues
+
+1. **Worker can't reach backend**: 
+   - Verify BACKEND_URL is correct and accessible (must be public HTTPS URL, not localhost)
+   - Test the URL in a browser: `https://your-backend-url.com/health`
+   - For local development, use ngrok or similar tunneling service
+
+2. **403 Forbidden errors**: 
+   - Check WEBHOOK_SECRET matches backend `CF_WEBHOOK_SECRET` exactly
+   - Both must be the same string (case-sensitive)
+   - Check backend logs for "Webhook secret mismatch" messages
+
+3. **404 Not Found**: 
+   - Verify WEBHOOK_PATH is correct (`/api/webhooks/cloudflare`)
+   - Check backend logs to see if request is reaching the server
+
+4. **Emails not appearing in backend**:
+   - Check backend logs for detailed error messages (now includes more logging)
+   - Verify the webhook is being called (check backend logs for "Webhook received")
+   - Check that admin user exists in database (backend logs will show "Admin user not found" if missing)
+   - Verify email parsing is working (check for "Email parsed successfully" in logs)
+
+### Debugging Steps
+
+1. **Check Cloudflare Worker logs**:
+   ```bash
+   wrangler tail
+   ```
+   This shows real-time logs from your worker
+
+2. **Check backend logs**:
+   - Look for "Webhook received" messages
+   - Check for any error messages
+   - Verify "Message created with ID" appears
+
+3. **Test webhook manually**:
+   ```bash
+   curl -X POST https://your-backend-url.com/api/webhooks/cloudflare \
+     -H "Content-Type: application/json" \
+     -H "X-Webhook-Secret: your-secret" \
+     -d '{"rawEmail": "base64-encoded-email-here"}'
+   ```
+
+4. **Verify secrets are set**:
+   ```bash
+   wrangler secret list
+   ```
+   Should show: BACKEND_URL, WEBHOOK_SECRET, WEBHOOK_PATH
 

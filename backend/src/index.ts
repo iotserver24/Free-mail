@@ -105,9 +105,10 @@ app.use(async (_req, _res, next) => {
 app.use("/api/auth", authRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
-// Webhooks - handle both JSON and raw email bodies
-app.use("/api/webhooks/cloudflare", express.raw({ type: ["application/json", "text/plain", "message/rfc822"], limit: "10mb" }), webhooksRouter);
-app.use("/api/webhooks", express.json({ limit: "10mb" }), webhooksRouter);
+// Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
+// Other webhook routes can use raw for direct email forwarding
+app.use("/api/webhooks/cloudflare", express.json({ limit: "10mb" }), webhooksRouter);
+app.use("/api/webhooks", express.raw({ type: ["text/plain", "message/rfc822"], limit: "10mb" }), webhooksRouter);
 
 // Error handler - must be last
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

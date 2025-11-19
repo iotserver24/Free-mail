@@ -10,79 +10,96 @@ export const webhooksRouter = Router();
 webhooksRouter.post("/cloudflare", async (req, res, next) => {
   try {
     const secretHeader = req.header("x-webhook-secret");
+    console.log("Webhook received - Secret header present:", !!secretHeader);
+    
     if (config.security.webhookSecret && secretHeader !== config.security.webhookSecret) {
+      console.error("Webhook secret mismatch. Expected:", config.security.webhookSecret?.substring(0, 5) + "...", "Got:", secretHeader?.substring(0, 5) + "...");
       return res.status(403).json({ error: "invalid webhook secret" });
     }
 
-    // Cloudflare Email Routing can send emails in different formats
-    // Try to handle multiple formats:
+    // Cloudflare Worker sends JSON with rawEmail field (base64 encoded)
     let rawEmail: string;
     
     // Get admin user ID from database
     const adminUser = await getUserByEmail(config.admin.email);
     if (!adminUser) {
+      console.error("Admin user not found:", config.admin.email);
       return res.status(500).json({ error: "admin user not found" });
     }
     const userId = adminUser.id;
 
     const contentType = req.header("content-type") || "";
+    console.log("Webhook Content-Type:", contentType);
+    console.log("Webhook body type:", typeof req.body, "Is Buffer:", Buffer.isBuffer(req.body));
 
-    // Format 1: JSON with rawEmail field (base64 encoded)
+    // Cloudflare Worker sends JSON with rawEmail field (base64 encoded)
     if (contentType.includes("application/json") && req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
       if ("rawEmail" in req.body) {
         const body = req.body as { rawEmail: string };
+        console.log("Found rawEmail in JSON body, length:", body.rawEmail?.length);
         rawEmail = Buffer.from(body.rawEmail, "base64").toString("utf-8");
-      } else if ("email" in req.body) {
-        const body = req.body as { email: string };
-        rawEmail = typeof body.email === "string" ? body.email : JSON.stringify(body.email);
+        console.log("Decoded email length:", rawEmail.length);
       } else {
-        // Try to parse as JSON string
-        try {
-          const parsed = JSON.parse(req.body.toString());
-          if (parsed.rawEmail) {
-            rawEmail = Buffer.from(parsed.rawEmail, "base64").toString("utf-8");
-          } else {
-            rawEmail = req.body.toString();
-          }
-        } catch {
-          rawEmail = req.body.toString();
-        }
+        console.error("JSON body missing rawEmail field. Body keys:", Object.keys(req.body));
+        return res.status(400).json({ error: "rawEmail field is required in JSON body" });
       }
     }
-    // Format 2: Raw email in request body (Buffer from express.raw)
+    // Fallback: Try to parse as Buffer (shouldn't happen with express.json, but just in case)
     else if (Buffer.isBuffer(req.body)) {
-      // Check if it's JSON
       try {
         const jsonBody = JSON.parse(req.body.toString());
         if (jsonBody.rawEmail) {
           rawEmail = Buffer.from(jsonBody.rawEmail, "base64").toString("utf-8");
         } else {
-          rawEmail = req.body.toString("utf-8");
+          console.error("Buffer body missing rawEmail field");
+          return res.status(400).json({ error: "rawEmail field is required" });
         }
-      } catch {
-        // Not JSON, treat as raw email
-        rawEmail = req.body.toString("utf-8");
+      } catch (parseError) {
+        console.error("Failed to parse Buffer as JSON:", parseError);
+        return res.status(400).json({ error: "invalid JSON format" });
       }
     }
-    // Format 3: Raw email in request body (plain text string)
+    // Fallback: String body
     else if (typeof req.body === "string") {
-      rawEmail = req.body;
+      try {
+        const jsonBody = JSON.parse(req.body);
+        if (jsonBody.rawEmail) {
+          rawEmail = Buffer.from(jsonBody.rawEmail, "base64").toString("utf-8");
+        } else {
+          return res.status(400).json({ error: "rawEmail field is required" });
+        }
+      } catch {
+        rawEmail = req.body;
+      }
     }
-    // Format 4: Try to get from raw body
     else {
-      rawEmail = req.body?.toString() || "";
+      console.error("Unsupported body type:", typeof req.body);
+      return res.status(400).json({ error: "unsupported content type or missing body" });
     }
 
     if (!rawEmail || rawEmail.trim().length === 0) {
-      console.error("Webhook received invalid payload. Content-Type:", contentType);
+      console.error("Webhook received empty rawEmail. Content-Type:", contentType);
       console.error("Body type:", typeof req.body, "Is Buffer:", Buffer.isBuffer(req.body));
-      return res.status(400).json({ error: "rawEmail is required" });
+      return res.status(400).json({ error: "rawEmail is required and cannot be empty" });
     }
 
+    console.log("Parsing email with mailparser...");
     const parsed = await simpleParser(rawEmail);
+    console.log("Email parsed successfully. Subject:", parsed.subject);
+    
+    // Handle from/to addresses (can be single object or array)
+    const fromText = Array.isArray(parsed.from) 
+      ? parsed.from.map(addr => addr.text || (addr as any).address || "").join(", ")
+      : parsed.from?.text || (parsed.from as any)?.address || "";
+    const toText = Array.isArray(parsed.to)
+      ? parsed.to.map(addr => addr.text || (addr as any).address || "").join(", ")
+      : parsed.to?.text || (parsed.to as any)?.address || "";
+    console.log("From:", fromText, "To:", toText);
+    
     const htmlBody = typeof parsed.html === "string" ? parsed.html : null;
     const textBody = parsed.text ?? null;
 
+    console.log("Creating message record in database...");
     const record = await createMessage({
       userId,
       direction: "inbound",
@@ -92,9 +109,11 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
       bodyHtml: htmlBody,
       status: "received",
     });
+    console.log("Message created with ID:", record.id);
 
     const attachments = parsed.attachments as Attachment[] | undefined;
     if (attachments?.length) {
+      console.log("Processing", attachments.length, "attachments...");
       await Promise.all(
         attachments.map(async (att) => {
           const url = await uploadBufferToCatbox(att.filename ?? "attachment.bin", att.content);
@@ -105,13 +124,19 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
             size: att.size ?? att.content.length,
             url,
           });
+          console.log("Attachment uploaded:", att.filename);
           return url;
         })
       );
     }
 
+    console.log("Webhook processed successfully");
     return res.status(204).send();
   } catch (error) {
+    console.error("Error processing webhook:", error);
+    if (error instanceof Error) {
+      console.error("Error stack:", error.stack);
+    }
     next(error);
   }
 });
