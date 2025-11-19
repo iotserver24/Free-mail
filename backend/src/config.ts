@@ -2,6 +2,29 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+
+function getRequiredEnv(key: string, fallback?: string) {
+  const value = process.env[key] ?? fallback;
+  if (!value && isServerless) {
+    throw new Error(
+      `Missing required environment variable "${key}". ` +
+      `Serverless deployments (Vercel/production) must set this variable to avoid runtime failures.`
+    );
+  }
+  return value ?? "";
+}
+
+const databaseUrl =
+  process.env.MONGODB_URL ??
+  (!isServerless ? "mongodb://localhost:27017/freemail" : undefined);
+
+if (!databaseUrl) {
+  throw new Error(
+    'MONGODB_URL is not set. Provide a remote MongoDB connection string via environment variable (see `VERCEL_DEPLOY.md`).'
+  );
+}
+
 export const config = {
   port: parseInt(process.env.PORT ?? "4000", 10),
   brevo: {
@@ -12,17 +35,17 @@ export const config = {
     sender: process.env.BREVO_SENDER ?? "", // Optional fallback (users should provide their own 'from' address)
   },
   database: {
-    url: process.env.MONGODB_URL ?? "mongodb://localhost:27017/freemail",
+    url: databaseUrl,
   },
   security: {
-    webhookSecret: process.env.CF_WEBHOOK_SECRET ?? "",
+    webhookSecret: getRequiredEnv("CF_WEBHOOK_SECRET"),
   },
   catbox: {
     apiUrl: process.env.CATBOX_API_URL ?? "https://catbox.moe/user/api.php",
   },
   admin: {
-    email: process.env.ADMIN_EMAIL ?? "admin@example.com",
-    password: process.env.ADMIN_PASSWORD ?? "admin123",
+    email: getRequiredEnv("ADMIN_EMAIL", "admin@example.com"),
+    password: getRequiredEnv("ADMIN_PASSWORD", "admin123"),
   },
 };
 
