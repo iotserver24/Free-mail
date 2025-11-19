@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { SendMessagePayload } from "../lib/api";
 
@@ -6,6 +6,7 @@ interface ComposerProps {
   onSend(payload: SendMessagePayload): Promise<void>;
   sending: boolean;
   error?: string | null;
+  pulseSignal?: number;
 }
 
 interface LocalAttachment {
@@ -15,14 +16,48 @@ interface LocalAttachment {
   contentType: string;
 }
 
-export function Composer({ onSend, sending, error }: ComposerProps) {
+const templates = [
+  {
+    label: "Status update",
+    subject: "Weekly status update",
+    body: "Hi team,\n\nHere is the latest status update:\n• Progress:\n• Blockers:\n• Next steps:\n\nThanks!",
+  },
+  {
+    label: "Follow-up",
+    subject: "Quick follow-up",
+    body: "Hello,\n\nJust checking in to see if you had a chance to review my previous note.\n\nBest regards,",
+  },
+  {
+    label: "Welcome",
+    subject: "Welcome aboard!",
+    body: "Hi there,\n\nThrilled to have you with us. Let me know if you need anything.\n\nCheers,",
+  },
+];
+
+export function Composer({ onSend, sending, error, pulseSignal }: ComposerProps) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+  const [highlight, setHighlight] = useState(false);
 
   const isValid = useMemo(() => from.trim().length > 0 && to.trim().length > 0 && subject.trim().length > 0, [from, to, subject]);
+
+  useEffect(() => {
+    if (pulseSignal === undefined) return;
+    setHighlight(true);
+    const timeout = setTimeout(() => setHighlight(false), 1200);
+    return () => clearTimeout(timeout);
+  }, [pulseSignal]);
+
+  const parseList = (value: string) =>
+    value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
@@ -60,9 +95,15 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
     event.preventDefault();
     if (!isValid) return;
 
+    const toList = parseList(to);
+    const ccList = parseList(cc);
+    const bccList = parseList(bcc);
+
     await onSend({
       from: from.trim(),
-      to: to.split(",").map((value) => value.trim()).filter(Boolean),
+      to: toList,
+      cc: ccList.length ? ccList : undefined,
+      bcc: bccList.length ? bccList : undefined,
       subject,
       text: body,
       attachments: attachments.map(({ filename, contentBase64, contentType }) => ({
@@ -77,24 +118,48 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
     setSubject("");
     setBody("");
     setAttachments([]);
+    setCc("");
+    setBcc("");
   }
 
   return (
-    <form id="composer-panel" className="panel composer-panel" onSubmit={handleSubmit}>
-      <div className="panel-header">
-        <h3>Composer</h3>
-        <small>{isValid ? "Ready to send" : "Fill in from, to, and subject"}</small>
+    <form id="composer-panel" className={`panel composer-panel ${highlight ? "composer-highlight" : ""}`} onSubmit={handleSubmit}>
+      <div className="panel-header composer-header">
+        <div>
+          <h3>Compose</h3>
+          <small>{isValid ? "Ready to ship" : "Fill out sender, recipients & subject"}</small>
+        </div>
+        <div className="template-chips">
+          {templates.map((template) => (
+            <button type="button" key={template.label} className="chip" onClick={() => {
+              setSubject(template.subject);
+              setBody(template.body);
+            }}>
+              {template.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="composer">
         {error && <div className="error-banner">{error}</div>}
-        <label>
-          From
-          <input type="email" placeholder="your-email@yourdomain.com" value={from} onChange={(event) => setFrom(event.target.value)} required />
-        </label>
-        <label>
-          To
-          <input placeholder="person@example.com, team@example.com" value={to} onChange={(event) => setTo(event.target.value)} />
-        </label>
+        <div className="composer-grid">
+          <label>
+            From
+            <input type="email" placeholder="your-email@yourdomain.com" value={from} onChange={(event) => setFrom(event.target.value)} required />
+          </label>
+          <label>
+            To
+            <input placeholder="person@example.com, team@example.com" value={to} onChange={(event) => setTo(event.target.value)} />
+          </label>
+          <label>
+            Cc
+            <input placeholder="optional cc" value={cc} onChange={(event) => setCc(event.target.value)} />
+          </label>
+          <label>
+            Bcc
+            <input placeholder="optional bcc" value={bcc} onChange={(event) => setBcc(event.target.value)} />
+          </label>
+        </div>
         <label>
           Subject
           <input placeholder="Quarterly update" value={subject} onChange={(event) => setSubject(event.target.value)} />
@@ -103,11 +168,12 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
           Message
           <textarea placeholder="Write your email…" value={body} onChange={(event) => setBody(event.target.value)} />
         </label>
-        <div>
-          <label htmlFor="fileInput" className="btn btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+        <div className="attachment-row">
+          <label htmlFor="fileInput" className="btn btn-ghost attach-btn">
             📎 Attach
           </label>
           <input id="fileInput" type="file" multiple hidden onChange={handleFileChange} />
+          <span>{attachments.length} attachment(s)</span>
         </div>
         {attachments.length > 0 && (
           <div className="attachments">
@@ -122,7 +188,11 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
           </div>
         )}
         <div className="composer-actions">
-          <span>{attachments.length} attachment(s)</span>
+          <div className="composer-status">
+            <span className={isValid ? "status-ready" : "status-pending"}>
+              {isValid ? "Ready to deploy" : "Missing required fields"}
+            </span>
+          </div>
           <button className="btn btn-primary" type="submit" disabled={!isValid || sending}>
             {sending ? "Sending…" : "Send"}
           </button>

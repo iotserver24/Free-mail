@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
 import { config } from "./config";
@@ -13,8 +14,28 @@ const app = express();
 
 // Basic error handling for app initialization
 try {
-  // CORS removed - not needed for mobile apps (React Native, Flutter, etc.)
-  // Mobile apps make direct HTTP requests, not browser requests
+  const allowedOrigins = (config.corsOrigins?.split(",") || [config.frontendUrl]).map((origin) =>
+    origin.trim()
+  );
+
+  const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true); // Allow server-to-server or curl
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  };
+
+  app.use(cors(corsOptions));
+
   app.use(express.json({ limit: "2mb" }));
   app.use(morgan("dev"));
   

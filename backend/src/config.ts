@@ -27,6 +27,8 @@ if (!databaseUrl) {
 
 export const config = {
   port: parseInt(process.env.PORT ?? "4000", 10),
+  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  corsOrigins: process.env.CORS_ORIGINS,
   brevo: {
     host: process.env.BREVO_SMTP_HOST ?? "smtp-relay.brevo.com",
     port: parseInt(process.env.BREVO_SMTP_PORT ?? "587", 10),
