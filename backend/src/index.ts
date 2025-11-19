@@ -32,10 +32,21 @@ app.use(
     },
   })
 );
+// Initialize database on first request (for serverless)
+app.use(async (_req, _res, next) => {
+  await initializeDatabase();
+  next();
+});
+
 app.use(attachUser);
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (_req, res) => {
+  try {
+    await ensureConnection();
+    res.json({ status: "ok", database: "connected" });
+  } catch (error) {
+    res.status(503).json({ status: "error", database: "disconnected" });
+  }
 });
 
 app.use("/api/auth", authRouter);
@@ -49,6 +60,20 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   console.error(err);
   res.status(500).json({ error: "internal server error" });
 });
+
+// Initialize database connection on app start (for serverless, this runs on first request)
+let dbInitialized = false;
+async function initializeDatabase() {
+  if (!dbInitialized) {
+    try {
+      await ensureConnection();
+      dbInitialized = true;
+    } catch (error) {
+      console.error("Database connection error:", error);
+      // Don't throw - let individual requests handle connection retries
+    }
+  }
+}
 
 async function bootstrap() {
   await ensureConnection();
