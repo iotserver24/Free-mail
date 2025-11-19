@@ -9,10 +9,10 @@ export const config = {
     port: parseInt(process.env.BREVO_SMTP_PORT ?? "587", 10),
     user: process.env.BREVO_SMTP_USER ?? "",
     pass: process.env.BREVO_SMTP_PASS ?? "",
-    sender: process.env.BREVO_SENDER ?? "no-reply@example.com",
+    sender: process.env.BREVO_SENDER ?? "", // Optional fallback (users should provide their own 'from' address)
   },
   database: {
-    url: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/freemail",
+    url: process.env.MONGODB_URL ?? "mongodb://localhost:27017/freemail",
   },
   security: {
     webhookSecret: process.env.CF_WEBHOOK_SECRET ?? "",

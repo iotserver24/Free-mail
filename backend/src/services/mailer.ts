@@ -12,6 +12,7 @@ export const brevoTransport = nodemailer.createTransport({
 });
 
 export interface SendMailInput {
+  from: string; // User's email address to send from
   to: string[];
   cc?: string[] | undefined;
   bcc?: string[] | undefined;
@@ -26,8 +27,9 @@ export interface SendMailInput {
 }
 
 export async function sendBrevoMail(payload: SendMailInput) {
+  // Users must provide their own 'from' address
   return brevoTransport.sendMail({
-    from: config.brevo.sender,
+    from: payload.from,
     ...payload,
   });
 }

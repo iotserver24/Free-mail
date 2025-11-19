@@ -16,12 +16,13 @@ interface LocalAttachment {
 }
 
 export function Composer({ onSend, sending, error }: ComposerProps) {
+  const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 
-  const isValid = useMemo(() => to.trim().length > 0 && subject.trim().length > 0, [to, subject]);
+  const isValid = useMemo(() => from.trim().length > 0 && to.trim().length > 0 && subject.trim().length > 0, [from, to, subject]);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
@@ -60,6 +61,7 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
     if (!isValid) return;
 
     await onSend({
+      from: from.trim(),
       to: to.split(",").map((value) => value.trim()).filter(Boolean),
       subject,
       text: body,
@@ -70,6 +72,7 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
       })),
     });
 
+    setFrom("");
     setTo("");
     setSubject("");
     setBody("");
@@ -80,10 +83,14 @@ export function Composer({ onSend, sending, error }: ComposerProps) {
     <form id="composer-panel" className="panel composer-panel" onSubmit={handleSubmit}>
       <div className="panel-header">
         <h3>Composer</h3>
-        <small>{isValid ? "Ready to send" : "Fill in recipient + subject"}</small>
+        <small>{isValid ? "Ready to send" : "Fill in from, to, and subject"}</small>
       </div>
       <div className="composer">
         {error && <div className="error-banner">{error}</div>}
+        <label>
+          From
+          <input type="email" placeholder="your-email@yourdomain.com" value={from} onChange={(event) => setFrom(event.target.value)} required />
+        </label>
         <label>
           To
           <input placeholder="person@example.com, team@example.com" value={to} onChange={(event) => setTo(event.target.value)} />

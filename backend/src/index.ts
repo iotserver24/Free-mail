@@ -3,7 +3,7 @@ import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
 import { config } from "./config";
-import { ensureConnection } from "./db";
+import { ensureConnection, closeConnection } from "./db";
 import { attachUser, requireAuth } from "./middleware/auth";
 import { authRouter } from "./routes/auth";
 import { messagesRouter } from "./routes/messages";
@@ -52,13 +52,33 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 async function bootstrap() {
   await ensureConnection();
-  app.listen(config.port, () => {
-    console.log(`API listening on port ${config.port}`);
+  const port = process.env.PORT || config.port;
+  app.listen(port, () => {
+    console.log(`API listening on port ${port}`);
   });
 }
 
-bootstrap().catch((error) => {
-  console.error("Failed to start server", error);
-  process.exit(1);
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("Shutting down...");
+  await closeConnection();
+  process.exit(0);
 });
+
+process.on("SIGTERM", async () => {
+  console.log("Shutting down...");
+  await closeConnection();
+  process.exit(0);
+});
+
+// Only start server if not in Vercel (serverless)
+if (process.env.VERCEL !== "1") {
+  bootstrap().catch((error) => {
+    console.error("Failed to start server", error);
+    process.exit(1);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
 

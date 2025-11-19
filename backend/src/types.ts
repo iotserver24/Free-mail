@@ -8,6 +8,7 @@ export interface MessageRecord {
   body_html: string | null;
   status: "queued" | "sent" | "failed" | "received";
   created_at: string;
+  updated_at: string;
 }
 
 export interface AttachmentRecord {

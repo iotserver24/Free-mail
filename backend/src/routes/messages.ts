@@ -36,10 +36,14 @@ interface AttachmentPayload {
 
 messagesRouter.post("/", async (req, res, next) => {
   try {
-    const { to, cc, bcc, subject, html, text, attachments = [] }: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; attachments?: AttachmentPayload[] } = req.body;
+    const { from, to, cc, bcc, subject, html, text, attachments = [] }: { from?: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; attachments?: AttachmentPayload[] } = req.body;
 
     if (!Array.isArray(to) || to.length === 0) {
       return res.status(400).json({ error: "at least one recipient required" });
+    }
+
+    if (!from || !from.trim()) {
+      return res.status(400).json({ error: "from address is required" });
     }
 
     const resolvedAttachments = await Promise.all(
@@ -64,6 +68,7 @@ messagesRouter.post("/", async (req, res, next) => {
     );
 
     await sendBrevoMail({
+      from: from.trim(),
       to,
       cc,
       bcc,

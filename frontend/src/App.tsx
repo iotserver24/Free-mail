@@ -37,14 +37,14 @@ function MailExperience({ user }: { user: User }) {
         <div className="brand">
           <span>FreeMail</span>
           <span className="user-email">{user.email}</span>
-        </div>
+      </div>
         <div className="top-actions">
           <button className="btn btn-ghost" onClick={() => messagesQuery.refetch()}>
             Refresh
           </button>
           <button className="btn btn-ghost" onClick={handleLogout}>
             Logout
-          </button>
+        </button>
         </div>
       </header>
       <section className="app-card">
@@ -82,7 +82,7 @@ function AuthFlow() {
   return (
     <div className="auth-container">
       <Login onSuccess={() => refetch()} onSwitchToRegister={() => {}} />
-    </div>
+      </div>
   );
 }
 

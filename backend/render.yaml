@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: freemail-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+    # Add your environment variables in Render dashboard
+

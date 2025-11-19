@@ -22,6 +22,7 @@ export interface Message {
 }
 
 export interface SendMessagePayload {
+  from: string; // Email address to send from
   to: string[];
   cc?: string[];
   bcc?: string[];
