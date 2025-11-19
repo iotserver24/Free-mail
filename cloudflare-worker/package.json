@@ -1,0 +1,20 @@
+{
+  "name": "email-webhook-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker to forward emails from Email Routing to FreeMail backend",
+  "main": "email-webhook.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "setup": "node -e \"console.log('Run: .\\setup-secrets.ps1 (Windows) or ./setup-secrets.sh (Linux/Mac)')\"",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File setup-secrets.ps1",
+    "setup:unix": "bash setup-secrets.sh"
+  },
+  "keywords": ["cloudflare", "worker", "email", "routing"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
+

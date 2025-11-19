@@ -1,0 +1,32 @@
+# Cloudflare Worker configuration
+# Install wrangler: npm install -g wrangler
+# Login: wrangler login
+# Deploy: wrangler deploy
+
+name = "free-mail-route"
+main = "email-webhook.js"
+compatibility_date = "2025-11-18"
+account_id = "b24e2ba64a61f064e0c2e4e02f757593"
+
+# ============================================
+# ENVIRONMENT VARIABLES CONFIGURATION
+# ============================================
+# 
+# Option 1: Set secrets (RECOMMENDED for production)
+# Run these commands to set encrypted secrets:
+#   wrangler secret put BACKEND_URL
+#   wrangler secret put WEBHOOK_SECRET
+#   wrangler secret put WEBHOOK_PATH
+#
+# Option 2: Set in vars below (for non-sensitive values or development)
+# Secrets set via 'wrangler secret put' take precedence over vars
+
+# Production environment (default)
+# Secrets set via 'wrangler secret put' take precedence over vars
+[env.production]
+# vars = {}  # Leave empty - use secrets instead
+
+# Development environment (for local testing)
+[env.development]
+vars = { BACKEND_URL = "http://localhost:4000", WEBHOOK_SECRET = "super-secret", WEBHOOK_PATH = "/api/webhooks/cloudflare" }
+
