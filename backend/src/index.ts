@@ -19,7 +19,7 @@ try {
   );
 
   const corsOptions: cors.CorsOptions = {
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) {
         return callback(null, true); // Allow server-to-server or curl
       }
