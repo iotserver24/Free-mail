@@ -19,7 +19,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
 export function attachUser(req: Request, _res: Response, next: NextFunction) {
   const userId = (req.session as { userId?: string }).userId;
-  req.userId = userId;
+  if (userId !== undefined) {
+    req.userId = userId;
+  }
   next();
 }
 

@@ -1,14 +1,19 @@
 import { Router } from "express";
 import multer from "multer";
+import type { Request } from "express";
 import { uploadBufferToCatbox } from "../services/catbox";
 import { addAttachment } from "../repositories/messages";
 
 const upload = multer();
 export const attachmentsRouter = Router();
 
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
 attachmentsRouter.post("/", upload.single("file"), async (req, res, next) => {
   try {
-    const file = req.file as Express.Multer.File | undefined;
+    const file = (req as MulterRequest).file;
     if (!file) {
       return res.status(400).json({ error: "file is required" });
     }

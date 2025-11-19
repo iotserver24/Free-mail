@@ -21,11 +21,16 @@ authRouter.post("/login", async (req, res, next) => {
     let adminUser = await getUserByEmail(config.admin.email);
     if (!adminUser) {
       // Create admin user if it doesn't exist
-      adminUser = await createUser({
+      await createUser({
         email: config.admin.email,
         password: config.admin.password,
         displayName: "Admin",
       });
+      // Fetch the created user with password_hash for consistency
+      adminUser = await getUserByEmail(config.admin.email);
+      if (!adminUser) {
+        return res.status(500).json({ error: "failed to create admin user" });
+      }
     }
 
     // Set session with admin user ID

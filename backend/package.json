@@ -21,9 +21,9 @@
     "express-session": "^1.18.2",
     "form-data": "^4.0.5",
     "mailparser": "^3.9.0",
+    "mongodb": "^6.3.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
-    "mongodb": "^6.3.0",
     "nodemailer": "^7.0.10",
     "uuid": "^13.0.0"
   },
@@ -31,8 +31,11 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.5",
     "@types/express-session": "^1.18.2",
+    "@types/mailparser": "^3.4.6",
     "@types/morgan": "^1.9.10",
+    "@types/multer": "^1.4.13",
     "@types/node": "^24.10.1",
+    "@types/nodemailer": "^6.4.21",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

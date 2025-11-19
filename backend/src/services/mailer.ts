@@ -28,9 +28,10 @@ export interface SendMailInput {
 
 export async function sendBrevoMail(payload: SendMailInput) {
   // Users must provide their own 'from' address
+  const { from, ...rest } = payload;
   return brevoTransport.sendMail({
-    from: payload.from,
-    ...payload,
+    from,
+    ...rest,
   });
 }
 

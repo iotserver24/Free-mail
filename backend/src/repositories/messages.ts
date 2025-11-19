@@ -66,7 +66,18 @@ export async function listMessages(userId: string, limit = 25): Promise<MessageR
     .limit(limit)
     .toArray();
 
-  return messages.map((msg) => ({
+  return messages.map((msg: {
+    id: string;
+    user_id: string;
+    direction: string;
+    subject: string;
+    preview_text: string | null;
+    body_plain: string | null;
+    body_html: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }) => ({
     id: msg.id,
     user_id: msg.user_id,
     direction: msg.direction as MessageRecord["direction"],
@@ -167,7 +178,15 @@ export async function listAttachments(messageId: string): Promise<AttachmentReco
     .sort({ created_at: 1 })
     .toArray();
 
-  return attachments.map((att) => ({
+  return attachments.map((att: {
+    id: string;
+    message_id: string;
+    filename: string;
+    mimetype: string;
+    size_bytes: number;
+    url: string;
+    created_at: string;
+  }) => ({
     id: att.id,
     message_id: att.message_id,
     filename: att.filename,
