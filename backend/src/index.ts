@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
 import { config } from "./config";
@@ -12,12 +11,8 @@ import { webhooksRouter } from "./routes/webhooks";
 
 const app = express();
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
-    credentials: true,
-  })
-);
+// CORS removed - not needed for mobile apps (React Native, Flutter, etc.)
+// Mobile apps make direct HTTP requests, not browser requests
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 app.use(
