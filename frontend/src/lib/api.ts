@@ -11,6 +11,7 @@ export interface Attachment {
 
 export interface Message {
   id: string;
+  inbox_id?: string | null;
   direction: "inbound" | "outbound";
   subject: string;
   preview_text?: string | null;
@@ -19,6 +20,31 @@ export interface Message {
   status: "queued" | "sent" | "failed" | "received";
   created_at: string;
   attachments?: Attachment[];
+}
+
+export interface Domain {
+  id: string;
+  domain: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface Email {
+  id: string;
+  email: string;
+  domain: string;
+  user_id: string;
+  inbox_id: string;
+  created_at: string;
+}
+
+export interface Inbox {
+  id: string;
+  email_id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  email?: string | null;
 }
 
 export interface SendMessagePayload {
@@ -55,12 +81,52 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const mailApi = {
-  listMessages: () => apiFetch<Message[]>("/api/messages"),
+  // Messages
+  listMessages: (inboxId?: string | null) => {
+    const url = inboxId ? `/api/messages?inboxId=${inboxId}` : "/api/messages";
+    return apiFetch<Message[]>(url);
+  },
   getMessage: (id: string) => apiFetch<Message>(`/api/messages/${id}`),
   sendMessage: (payload: SendMessagePayload) =>
     apiFetch<Message>("/api/messages", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  
+  // Domains
+  listDomains: () => apiFetch<Domain[]>("/api/domains"),
+  createDomain: (domain: string) =>
+    apiFetch<Domain>("/api/domains", {
+      method: "POST",
+      body: JSON.stringify({ domain }),
+    }),
+  deleteDomain: (domainId: string) =>
+    apiFetch<void>(`/api/domains/${domainId}`, {
+      method: "DELETE",
+    }),
+  
+  // Emails
+  listEmails: () => apiFetch<Email[]>("/api/emails"),
+  createEmail: (email: string, domain: string, inboxName?: string) =>
+    apiFetch<Email>("/api/emails", {
+      method: "POST",
+      body: JSON.stringify({ email, domain, inboxName }),
+    }),
+  deleteEmail: (emailId: string) =>
+    apiFetch<void>(`/api/emails/${emailId}`, {
+      method: "DELETE",
+    }),
+  
+  // Inboxes
+  listInboxes: () => apiFetch<Inbox[]>("/api/inboxes"),
+  createInbox: (emailId: string, name: string) =>
+    apiFetch<Inbox>("/api/inboxes", {
+      method: "POST",
+      body: JSON.stringify({ emailId, name }),
+    }),
+  deleteInbox: (inboxId: string) =>
+    apiFetch<void>(`/api/inboxes/${inboxId}`, {
+      method: "DELETE",
     }),
 };
 

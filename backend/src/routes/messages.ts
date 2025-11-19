@@ -2,12 +2,27 @@ import { Router } from "express";
 import axios from "axios";
 import { sendBrevoMail } from "../services/mailer";
 import { addAttachment, createMessage, getMessageById, listAttachments, listMessages } from "../repositories/messages";
+import { getEmailByAddress } from "../repositories/emails";
 
 export const messagesRouter = Router();
 
 messagesRouter.get("/", async (req, res, next) => {
   try {
-    const records = await listMessages(req.userId!);
+    const inboxId = req.query.inboxId as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
+    const records = await listMessages(req.userId!, inboxId || null, limit);
+    return res.json(records);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get messages for a specific inbox
+messagesRouter.get("/inbox/:inboxId", async (req, res, next) => {
+  try {
+    const { inboxId } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
+    const records = await listMessages(req.userId!, inboxId, limit);
     return res.json(records);
   } catch (error) {
     next(error);
@@ -78,8 +93,18 @@ messagesRouter.post("/", async (req, res, next) => {
       attachments: resolvedAttachments,
     });
 
+    // Get inbox_id from the "from" email address if provided
+    let inboxId: string | null = null;
+    if (from) {
+      const emailRecord = await getEmailByAddress(from.trim());
+      if (emailRecord && emailRecord.user_id === req.userId!) {
+        inboxId = emailRecord.inbox_id;
+      }
+    }
+
     const record = await createMessage({
       userId: req.userId!,
+      inboxId,
       direction: "outbound",
       subject,
       previewText: text?.slice(0, 120) ?? html?.replace(/<[^>]+>/g, "").slice(0, 120) ?? "",

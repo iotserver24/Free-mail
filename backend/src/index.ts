@@ -9,6 +9,9 @@ import { authRouter } from "./routes/auth";
 import { messagesRouter } from "./routes/messages";
 import { attachmentsRouter } from "./routes/attachments";
 import { webhooksRouter } from "./routes/webhooks";
+import { domainsRouter } from "./routes/domains";
+import { emailsRouter } from "./routes/emails";
+import { inboxesRouter } from "./routes/inboxes";
 
 const app = express();
 
@@ -103,6 +106,9 @@ app.use(async (_req, _res, next) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/domains", requireAuth, domainsRouter);
+app.use("/api/emails", requireAuth, emailsRouter);
+app.use("/api/inboxes", requireAuth, inboxesRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route

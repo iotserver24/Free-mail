@@ -1,6 +1,7 @@
 export interface MessageRecord {
   id: string;
   user_id: string;
+  inbox_id: string | null;
   direction: "inbound" | "outbound";
   subject: string;
   preview_text: string | null;

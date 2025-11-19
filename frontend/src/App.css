@@ -751,3 +751,171 @@
   color: rgba(255, 255, 255, 0.9);
   font-weight: 400;
 }
+
+/* Settings Section */
+.settings-section {
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+/* Domain Manager */
+.domain-manager,
+.email-manager {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.domain-manager-header,
+.email-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.domain-manager h3,
+.email-manager h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0b1522;
+  font-weight: 600;
+}
+
+.domain-form,
+.email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9ff;
+  border-radius: 0.75rem;
+}
+
+.domain-form input,
+.email-form input,
+.email-form select {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid #dfe5f6;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.domain-form input:focus,
+.email-form input:focus,
+.email-form select:focus {
+  outline: none;
+  border-color: #3651ff;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.email-at {
+  font-size: 1.2rem;
+  color: #57607b;
+  font-weight: 600;
+}
+
+.domain-list,
+.email-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.domain-item,
+.email-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8f9ff;
+  border-radius: 0.75rem;
+  border: 1px solid #eef2ff;
+}
+
+.domain-name,
+.email-address {
+  font-weight: 500;
+  color: #0b1522;
+  font-size: 0.95rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  text-align: center;
+  color: #7b839f;
+  padding: 2rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Inbox Selector */
+.inbox-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inbox-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.inbox-selector select {
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.inbox-selector select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.inbox-selector select option {
+  background: #1a1f3a;
+  color: #fff;
+}
+
+.composer select {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid #dfe5f6;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+
+.composer select:focus {
+  outline: none;
+  border-color: #3651ff;
+}

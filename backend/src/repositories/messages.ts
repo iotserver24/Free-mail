@@ -4,6 +4,7 @@ import { v4 as uuid } from "uuid";
 
 interface CreateMessageInput {
   userId: string;
+  inboxId?: string | null;
   direction: MessageRecord["direction"];
   subject: string;
   previewText?: string | null;
@@ -19,6 +20,7 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
   const message = {
     id: uuid(),
     user_id: input.userId,
+    inbox_id: input.inboxId ?? null,
     direction: input.direction,
     subject: input.subject,
     preview_text: input.previewText ?? null,
@@ -34,6 +36,7 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
   return {
     id: message.id,
     user_id: message.user_id,
+    inbox_id: message.inbox_id,
     direction: message.direction,
     subject: message.subject,
     preview_text: message.preview_text,
@@ -45,14 +48,20 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
   };
 }
 
-export async function listMessages(userId: string, limit = 25): Promise<MessageRecord[]> {
+export async function listMessages(userId: string, inboxId?: string | null, limit = 25): Promise<MessageRecord[]> {
   const db = await getDb();
   const collection = db.collection("messages");
+
+  const query: { user_id: string; inbox_id?: string | null } = { user_id: userId };
+  if (inboxId !== undefined) {
+    query.inbox_id = inboxId;
+  }
 
   const messages = await collection
     .find<{
       id: string;
       user_id: string;
+      inbox_id: string | null;
       direction: string;
       subject: string;
       preview_text: string | null;
@@ -61,7 +70,7 @@ export async function listMessages(userId: string, limit = 25): Promise<MessageR
       status: string;
       created_at: string;
       updated_at: string;
-    }>({ user_id: userId })
+    }>(query)
     .sort({ created_at: -1 })
     .limit(limit)
     .toArray();
@@ -69,6 +78,7 @@ export async function listMessages(userId: string, limit = 25): Promise<MessageR
   return messages.map((msg: {
     id: string;
     user_id: string;
+    inbox_id: string | null;
     direction: string;
     subject: string;
     preview_text: string | null;
@@ -80,6 +90,7 @@ export async function listMessages(userId: string, limit = 25): Promise<MessageR
   }) => ({
     id: msg.id,
     user_id: msg.user_id,
+    inbox_id: msg.inbox_id,
     direction: msg.direction as MessageRecord["direction"],
     subject: msg.subject,
     preview_text: msg.preview_text,
@@ -98,6 +109,7 @@ export async function getMessageById(userId: string, messageId: string): Promise
   const message = await collection.findOne<{
     id: string;
     user_id: string;
+    inbox_id: string | null;
     direction: string;
     subject: string;
     preview_text: string | null;
@@ -115,6 +127,7 @@ export async function getMessageById(userId: string, messageId: string): Promise
   return {
     id: message.id,
     user_id: message.user_id,
+    inbox_id: message.inbox_id,
     direction: message.direction as MessageRecord["direction"],
     subject: message.subject,
     preview_text: message.preview_text,

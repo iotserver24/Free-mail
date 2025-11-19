@@ -61,6 +61,26 @@ export async function ensureConnection(): Promise<void> {
     const attachmentsCollection = database.collection("attachments");
     await attachmentsCollection.createIndex({ message_id: 1 }, { background: true });
     await attachmentsCollection.createIndex({ id: 1 }, { unique: true, background: true });
+    
+    const domainsCollection = database.collection("domains");
+    await domainsCollection.createIndex({ user_id: 1, created_at: -1 }, { background: true });
+    await domainsCollection.createIndex({ domain: 1 }, { background: true });
+    await domainsCollection.createIndex({ id: 1 }, { unique: true, background: true });
+    
+    const emailAddressesCollection = database.collection("email_addresses");
+    await emailAddressesCollection.createIndex({ user_id: 1, created_at: -1 }, { background: true });
+    await emailAddressesCollection.createIndex({ email: 1 }, { unique: true, background: true });
+    await emailAddressesCollection.createIndex({ domain: 1 }, { background: true });
+    await emailAddressesCollection.createIndex({ inbox_id: 1 }, { background: true });
+    await emailAddressesCollection.createIndex({ id: 1 }, { unique: true, background: true });
+    
+    const inboxesCollection = database.collection("inboxes");
+    await inboxesCollection.createIndex({ user_id: 1, created_at: -1 }, { background: true });
+    await inboxesCollection.createIndex({ email_id: 1 }, { background: true });
+    await inboxesCollection.createIndex({ id: 1 }, { unique: true, background: true });
+    
+    // Update messages index to include inbox_id
+    await messagesCollection.createIndex({ user_id: 1, inbox_id: 1, created_at: -1 }, { background: true });
   } catch (error) {
     // Indexes might already exist, ignore errors
     console.warn("Index creation warning (may already exist):", error);

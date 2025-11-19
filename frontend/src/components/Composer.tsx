@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import type { SendMessagePayload } from "../lib/api";
+import type { SendMessagePayload, Email } from "../lib/api";
 
 interface ComposerProps {
+  emails?: Email[];
   onSend(payload: SendMessagePayload): Promise<void>;
   sending: boolean;
   error?: string | null;
@@ -34,7 +35,7 @@ const templates = [
   },
 ];
 
-export function Composer({ onSend, sending, error, pulseSignal }: ComposerProps) {
+export function Composer({ emails = [], onSend, sending, error, pulseSignal }: ComposerProps) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [cc, setCc] = useState("");
@@ -145,7 +146,28 @@ export function Composer({ onSend, sending, error, pulseSignal }: ComposerProps)
         <div className="composer-grid">
           <label>
             From
-            <input type="email" placeholder="your-email@yourdomain.com" value={from} onChange={(event) => setFrom(event.target.value)} required />
+            {emails.length > 0 ? (
+              <select
+                value={from}
+                onChange={(event) => setFrom(event.target.value)}
+                required
+              >
+                <option value="">Select email address</option>
+                {emails.map((email) => (
+                  <option key={email.id} value={email.email}>
+                    {email.email}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input 
+                type="email" 
+                placeholder="your-email@yourdomain.com" 
+                value={from} 
+                onChange={(event) => setFrom(event.target.value)} 
+                required 
+              />
+            )}
           </label>
           <label>
             To

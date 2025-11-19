@@ -5,14 +5,23 @@ import { InboxList } from "./components/InboxList";
 import { Composer } from "./components/Composer";
 import { MessageViewer } from "./components/MessageViewer";
 import { Login } from "./components/Login";
-import { useMessage, useMessages, useSendMessage } from "./hooks/useMail";
+import { DomainManager } from "./components/DomainManager";
+import { EmailManager } from "./components/EmailManager";
+import { InboxSelector } from "./components/InboxSelector";
+import { useMessage, useMessages, useSendMessage, useDomains, useEmails, useInboxes } from "./hooks/useMail";
 import { getCurrentUser, logout, type User } from "./lib/auth";
 
 const queryClient = new QueryClient();
 
 function MailExperience({ user }: { user: User }) {
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const messagesQuery = useMessages();
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  const domainsQuery = useDomains();
+  const emailsQuery = useEmails();
+  const inboxesQuery = useInboxes();
+  const messagesQuery = useMessages(selectedInboxId);
   const messageQuery = useMessage(selectedId);
   const sendMutation = useSendMessage();
   const [composerPulse, setComposerPulse] = useState(0);
@@ -98,12 +107,27 @@ function MailExperience({ user }: { user: User }) {
             <span className="user-email">Signed in as {user.email}</span>
           </div>
           <div className="top-actions">
+            {inboxesQuery.data && inboxesQuery.data.length > 0 && (
+              <InboxSelector
+                inboxes={inboxesQuery.data}
+                selectedInboxId={selectedInboxId}
+                onSelect={setSelectedInboxId}
+              />
+            )}
             <div className="sync-indicator">
               <span className="pulse-dot" aria-hidden />
               Synced {lastUpdatedAgo}
             </div>
-            <button className="btn btn-ghost" onClick={() => messagesQuery.refetch()}>
+            <button className="btn btn-ghost" onClick={() => {
+              messagesQuery.refetch();
+              domainsQuery.refetch();
+              emailsQuery.refetch();
+              inboxesQuery.refetch();
+            }}>
               Refresh
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShowSettings(!showSettings)}>
+              {showSettings ? "Hide" : "Settings"}
             </button>
             <button className="btn btn-ghost" onClick={handleLogout}>
               Logout
@@ -128,6 +152,18 @@ function MailExperience({ user }: { user: User }) {
           </article>
         </section>
 
+        {showSettings && (
+          <section className="app-card settings-section">
+            <div className="settings-grid">
+              <DomainManager domains={domainsQuery.data || []} />
+              <EmailManager 
+                emails={emailsQuery.data || []} 
+                domains={domainsQuery.data || []}
+              />
+            </div>
+          </section>
+        )}
+
         <section className="app-card">
           <div className="mail-grid">
             <InboxList
@@ -143,6 +179,7 @@ function MailExperience({ user }: { user: User }) {
               refetching={messagesQuery.isRefetching}
             />
             <Composer
+              emails={emailsQuery.data || []}
               onSend={(payload) => sendMutation.mutateAsync(payload).then(() => {})}
               sending={sendMutation.isPending}
               error={sendMutation.isError ? (sendMutation.error as Error).message : null}

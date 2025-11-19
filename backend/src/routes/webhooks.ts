@@ -4,6 +4,7 @@ import { config } from "../config";
 import { createMessage, addAttachment } from "../repositories/messages";
 import { uploadBufferToCatbox } from "../services/catbox";
 import { getUserByEmail } from "../repositories/users";
+import { getEmailByAddress } from "../repositories/emails";
 
 export const webhooksRouter = Router();
 
@@ -19,14 +20,6 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
 
     // Cloudflare Worker sends JSON with rawEmail field (base64 encoded)
     let rawEmail: string;
-    
-    // Get admin user ID from database
-    const adminUser = await getUserByEmail(config.admin.email);
-    if (!adminUser) {
-      console.error("Admin user not found:", config.admin.email);
-      return res.status(500).json({ error: "admin user not found" });
-    }
-    const userId = adminUser.id;
 
     const contentType = req.header("content-type") || "";
     console.log("Webhook Content-Type:", contentType);
@@ -96,12 +89,48 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
       : parsed.to?.text || (parsed.to as any)?.address || "";
     console.log("From:", fromText, "To:", toText);
     
+    // Extract recipient email addresses
+    const recipientEmails: string[] = [];
+    if (Array.isArray(parsed.to)) {
+      parsed.to.forEach(addr => {
+        const email = (addr as any).address || addr.text?.match(/<([^>]+)>/)?.[1] || addr.text;
+        if (email) recipientEmails.push(email.toLowerCase());
+      });
+    } else if (parsed.to) {
+      const email = (parsed.to as any).address || parsed.to.text?.match(/<([^>]+)>/)?.[1] || parsed.to.text;
+      if (email) recipientEmails.push(email.toLowerCase());
+    }
+    
+    // Validate that at least one recipient email exists in the database
+    let validEmailRecord = null;
+    for (const recipientEmail of recipientEmails) {
+      const emailRecord = await getEmailByAddress(recipientEmail);
+      if (emailRecord) {
+        validEmailRecord = emailRecord;
+        console.log("Found valid email address:", recipientEmail);
+        break;
+      }
+    }
+    
+    if (!validEmailRecord) {
+      console.error("Rejecting email: No valid recipient found. Recipients:", recipientEmails);
+      // Return 200 to prevent Cloudflare from retrying, but log the rejection
+      return res.status(200).json({ 
+        message: "Email rejected - recipient not found",
+        rejected: true 
+      });
+    }
+    
+    const userId = validEmailRecord.user_id;
+    const inboxId = validEmailRecord.inbox_id;
+    
     const htmlBody = typeof parsed.html === "string" ? parsed.html : null;
     const textBody = parsed.text ?? null;
 
-    console.log("Creating message record in database...");
+    console.log("Creating message record in database for inbox:", inboxId);
     const record = await createMessage({
       userId,
+      inboxId,
       direction: "inbound",
       subject: parsed.subject ?? "(no subject)",
       previewText: textBody?.slice(0, 120) ?? htmlBody?.replace(/<[^>]+>/g, "").slice(0, 120) ?? "",
