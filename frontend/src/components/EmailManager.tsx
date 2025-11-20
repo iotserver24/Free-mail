@@ -40,8 +40,10 @@ export function EmailManager({ emails, domains }: EmailManagerProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newEmail.trim() && selectedDomain) {
+      // Construct full email address: username@domain.com
+      const fullEmail = `${newEmail.trim()}@${selectedDomain}`;
       createMutation.mutate({
-        email: newEmail.trim(),
+        email: fullEmail,
         domain: selectedDomain,
         inboxName: inboxName.trim() || undefined,
       });
@@ -82,6 +84,7 @@ export function EmailManager({ emails, domains }: EmailManagerProps) {
               onChange={(e) => setSelectedDomain(e.target.value)}
               disabled={createMutation.isPending}
               required
+              aria-label="Select domain"
             >
               <option value="">Select domain</option>
               {domains.map((domain) => (

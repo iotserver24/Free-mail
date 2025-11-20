@@ -27,6 +27,11 @@ function MailExperience({ user }: { user: User }) {
   const [composerPulse, setComposerPulse] = useState(0);
 
   useEffect(() => {
+    // Reset selected message when inbox changes
+    setSelectedId(undefined);
+  }, [selectedInboxId]);
+
+  useEffect(() => {
     if (!selectedId && messagesQuery.data && messagesQuery.data.length > 0) {
       setSelectedId(messagesQuery.data[0].id);
     }
@@ -107,13 +112,11 @@ function MailExperience({ user }: { user: User }) {
             <span className="user-email">Signed in as {user.email}</span>
           </div>
           <div className="top-actions">
-            {inboxesQuery.data && inboxesQuery.data.length > 0 && (
-              <InboxSelector
-                inboxes={inboxesQuery.data}
-                selectedInboxId={selectedInboxId}
-                onSelect={setSelectedInboxId}
-              />
-            )}
+            <InboxSelector
+              inboxes={inboxesQuery.data || []}
+              selectedInboxId={selectedInboxId}
+              onSelect={setSelectedInboxId}
+            />
             <div className="sync-indicator">
               <span className="pulse-dot" aria-hidden />
               Synced {lastUpdatedAgo}
