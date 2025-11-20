@@ -56,6 +56,8 @@ export async function ensureConnection(): Promise<void> {
     
     const messagesCollection = database.collection("messages");
     await messagesCollection.createIndex({ user_id: 1, created_at: -1 }, { background: true });
+    await messagesCollection.createIndex({ user_id: 1, inbox_id: 1, created_at: -1 }, { background: true });
+    await messagesCollection.createIndex({ thread_id: 1, created_at: -1 }, { background: true });
     await messagesCollection.createIndex({ id: 1 }, { unique: true, background: true });
     
     const attachmentsCollection = database.collection("attachments");

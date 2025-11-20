@@ -80,14 +80,14 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
     const parsed = await simpleParser(rawEmail);
     console.log("Email parsed successfully. Subject:", parsed.subject);
     
-    // Handle from/to addresses (can be single object or array)
-    const fromText = Array.isArray(parsed.from) 
-      ? parsed.from.map(addr => addr.text || (addr as any).address || "").join(", ")
-      : parsed.from?.text || (parsed.from as any)?.address || "";
-    const toText = Array.isArray(parsed.to)
-      ? parsed.to.map(addr => addr.text || (addr as any).address || "").join(", ")
-      : parsed.to?.text || (parsed.to as any)?.address || "";
-    console.log("From:", fromText, "To:", toText);
+    // Extract sender email address
+    let senderEmail: string | null = null;
+    if (Array.isArray(parsed.from)) {
+      const firstFrom = parsed.from[0];
+      senderEmail = ((firstFrom as any).address || firstFrom.text?.match(/<([^>]+)>/)?.[1] || firstFrom.text || "").toLowerCase();
+    } else if (parsed.from) {
+      senderEmail = ((parsed.from as any).address || parsed.from.text?.match(/<([^>]+)>/)?.[1] || parsed.from.text || "").toLowerCase();
+    }
     
     // Extract recipient email addresses
     const recipientEmails: string[] = [];
@@ -100,6 +100,8 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
       const email = (parsed.to as any).address || parsed.to.text?.match(/<([^>]+)>/)?.[1] || parsed.to.text;
       if (email) recipientEmails.push(email.toLowerCase());
     }
+    
+    console.log("From:", senderEmail, "To:", recipientEmails);
     
     // Validate that at least one recipient email exists in the database
     let validEmailRecord = null;
@@ -133,6 +135,8 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
       inboxId,
       direction: "inbound",
       subject: parsed.subject ?? "(no subject)",
+      senderEmail,
+      recipientEmails,
       previewText: textBody?.slice(0, 120) ?? htmlBody?.replace(/<[^>]+>/g, "").slice(0, 120) ?? "",
       bodyPlain: textBody,
       bodyHtml: htmlBody,

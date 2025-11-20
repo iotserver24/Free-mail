@@ -39,7 +39,7 @@ try {
 
   app.use(cors(corsOptions));
 
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "25mb" })); // Increased for attachment URLs
   app.use(morgan("dev"));
   
   const sessionSecret = process.env.SESSION_SECRET;
@@ -55,6 +55,7 @@ try {
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       },
     })
@@ -113,8 +114,8 @@ app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
 // Other webhook routes can use raw for direct email forwarding
-app.use("/api/webhooks/cloudflare", express.json({ limit: "10mb" }), webhooksRouter);
-app.use("/api/webhooks", express.raw({ type: ["text/plain", "message/rfc822"], limit: "10mb" }), webhooksRouter);
+app.use("/api/webhooks/cloudflare", express.json({ limit: "25mb" }), webhooksRouter);
+app.use("/api/webhooks", express.raw({ type: ["text/plain", "message/rfc822"], limit: "25mb" }), webhooksRouter);
 
 // Error handler - must be last
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

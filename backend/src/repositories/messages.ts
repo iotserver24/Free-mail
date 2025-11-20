@@ -2,11 +2,87 @@ import { getDb } from "../db";
 import { MessageRecord, AttachmentRecord } from "../types";
 import { v4 as uuid } from "uuid";
 
+/**
+ * Normalize subject for threading (remove Re:/Fwd: prefixes)
+ */
+function normalizeSubject(subject: string): string {
+  return subject
+    .replace(/^(Re:|RE:|re:|Fwd:|FWD:|fwd:|Fw:|FW:|fw:)\s*/i, "")
+    .replace(/^\[.*?\]\s*/, "")
+    .trim();
+}
+
+/**
+ * Generate or find thread ID for a message
+ */
+async function getOrCreateThreadId(
+  userId: string,
+  inboxId: string | null,
+  subject: string,
+  existingThreadId?: string | null
+): Promise<string | null> {
+  if (existingThreadId) {
+    return existingThreadId;
+  }
+
+  const normalizedSubject = normalizeSubject(subject);
+  if (!normalizedSubject) {
+    return null;
+  }
+
+  const db = await getDb();
+  const collection = db.collection("messages");
+
+  // Find existing thread with same normalized subject in same inbox
+  const existingMessage = await collection.findOne<{ thread_id: string | null }>(
+    {
+      user_id: userId,
+      inbox_id: inboxId,
+      $or: [
+        { subject: { $regex: new RegExp(`^Re:\\s*${normalizedSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i") } },
+        { subject: { $regex: new RegExp(`^Fwd:\\s*${normalizedSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i") } },
+        { subject: normalizedSubject },
+      ],
+      thread_id: { $ne: null },
+    },
+    { sort: { created_at: 1 } }
+  );
+
+  if (existingMessage?.thread_id) {
+    return existingMessage.thread_id;
+  }
+
+  // Check if this subject already exists (case-insensitive)
+  const existingWithSubject = await collection.findOne<{ id: string; thread_id: string | null }>(
+    {
+      user_id: userId,
+      inbox_id: inboxId,
+      $or: [
+        { subject: { $regex: new RegExp(`^Re:\\s*${normalizedSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i") } },
+        { subject: { $regex: new RegExp(`^Fwd:\\s*${normalizedSubject.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i") } },
+        { subject: normalizedSubject },
+      ],
+    },
+    { sort: { created_at: 1 } }
+  );
+
+  if (existingWithSubject) {
+    // Use the first message's ID as thread ID
+    return existingWithSubject.thread_id || existingWithSubject.id;
+  }
+
+  // No existing thread, return null (will be set to message ID after creation)
+  return null;
+}
+
 interface CreateMessageInput {
   userId: string;
   inboxId?: string | null;
   direction: MessageRecord["direction"];
   subject: string;
+  senderEmail?: string | null;
+  recipientEmails?: string[];
+  threadId?: string | null;
   previewText?: string | null;
   bodyPlain?: string | null;
   bodyHtml?: string | null;
@@ -17,12 +93,27 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
   const db = await getDb();
   const collection = db.collection("messages");
 
+  // Get or create thread ID for threading
+  const threadId = await getOrCreateThreadId(
+    input.userId,
+    input.inboxId ?? null,
+    input.subject,
+    input.threadId
+  );
+
+  const messageId = uuid();
+  // If no existing thread, use this message's ID as thread ID
+  const finalThreadId = threadId || messageId;
+
   const message = {
-    id: uuid(),
+    id: messageId,
     user_id: input.userId,
     inbox_id: input.inboxId ?? null,
     direction: input.direction,
     subject: input.subject,
+    sender_email: input.senderEmail ?? null,
+    recipient_emails: input.recipientEmails ?? [],
+    thread_id: finalThreadId,
     preview_text: input.previewText ?? null,
     body_plain: input.bodyPlain ?? null,
     body_html: input.bodyHtml ?? null,
@@ -39,6 +130,9 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     inbox_id: message.inbox_id,
     direction: message.direction,
     subject: message.subject,
+    sender_email: message.sender_email,
+    recipient_emails: message.recipient_emails,
+    thread_id: message.thread_id,
     preview_text: message.preview_text,
     body_plain: message.body_plain,
     body_html: message.body_html,
@@ -64,6 +158,9 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
       inbox_id: string | null;
       direction: string;
       subject: string;
+      sender_email: string | null;
+      recipient_emails: string[];
+      thread_id: string | null;
       preview_text: string | null;
       body_plain: string | null;
       body_html: string | null;
@@ -81,6 +178,9 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
     inbox_id: string | null;
     direction: string;
     subject: string;
+    sender_email: string | null;
+    recipient_emails: string[];
+    thread_id: string | null;
     preview_text: string | null;
     body_plain: string | null;
     body_html: string | null;
@@ -93,6 +193,9 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
     inbox_id: msg.inbox_id,
     direction: msg.direction as MessageRecord["direction"],
     subject: msg.subject,
+    sender_email: msg.sender_email,
+    recipient_emails: msg.recipient_emails,
+    thread_id: msg.thread_id,
     preview_text: msg.preview_text,
     body_plain: msg.body_plain,
     body_html: msg.body_html,
@@ -112,6 +215,9 @@ export async function getMessageById(userId: string, messageId: string): Promise
     inbox_id: string | null;
     direction: string;
     subject: string;
+    sender_email: string | null;
+    recipient_emails: string[];
+    thread_id: string | null;
     preview_text: string | null;
     body_plain: string | null;
     body_html: string | null;
@@ -130,6 +236,9 @@ export async function getMessageById(userId: string, messageId: string): Promise
     inbox_id: message.inbox_id,
     direction: message.direction as MessageRecord["direction"],
     subject: message.subject,
+    sender_email: message.sender_email,
+    recipient_emails: message.recipient_emails,
+    thread_id: message.thread_id,
     preview_text: message.preview_text,
     body_plain: message.body_plain,
     body_html: message.body_html,

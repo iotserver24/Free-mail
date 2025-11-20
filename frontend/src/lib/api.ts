@@ -14,6 +14,9 @@ export interface Message {
   inbox_id?: string | null;
   direction: "inbound" | "outbound";
   subject: string;
+  sender_email?: string | null;
+  recipient_emails?: string[];
+  thread_id?: string | null;
   preview_text?: string | null;
   body_plain?: string | null;
   body_html?: string | null;
@@ -55,9 +58,10 @@ export interface SendMessagePayload {
   subject: string;
   html?: string;
   text?: string;
+  threadId?: string | null; // For threading replies/forwards
   attachments?: {
     filename: string;
-    contentBase64: string;
+    url: string; // Catbox URL
     contentType: string;
   }[];
 }
@@ -78,6 +82,35 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+/**
+ * Upload a file directly to Catbox from the frontend
+ * @param file The file to upload
+ * @returns The Catbox URL of the uploaded file
+ */
+export async function uploadFileToCatbox(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("reqtype", "fileupload");
+  formData.append("fileToUpload", file);
+
+  const response = await fetch("https://catbox.moe/user/api.php", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Catbox upload failed: ${response.statusText}`);
+  }
+
+  const url = await response.text();
+  
+  // Catbox returns the URL directly as text, or an error message
+  if (url.startsWith("https://")) {
+    return url.trim();
+  }
+
+  throw new Error(`Catbox upload failed: ${url}`);
 }
 
 export const mailApi = {

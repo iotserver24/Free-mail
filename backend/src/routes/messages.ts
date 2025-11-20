@@ -44,14 +44,13 @@ messagesRouter.get("/:id", async (req, res, next) => {
 
 interface AttachmentPayload {
   filename: string;
-  contentBase64?: string;
-  url?: string;
+  url: string; // Catbox URL (required for frontend uploads)
   contentType?: string;
 }
 
 messagesRouter.post("/", async (req, res, next) => {
   try {
-    const { from, to, cc, bcc, subject, html, text, attachments = [] }: { from?: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; attachments?: AttachmentPayload[] } = req.body;
+    const { from, to, cc, bcc, subject, html, text, threadId, attachments = [] }: { from?: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; threadId?: string | null; attachments?: AttachmentPayload[] } = req.body;
 
     if (!Array.isArray(to) || to.length === 0) {
       return res.status(400).json({ error: "at least one recipient required" });
@@ -61,24 +60,20 @@ messagesRouter.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "from address is required" });
     }
 
+    // All attachments should have URLs (uploaded to Catbox from frontend)
     const resolvedAttachments = await Promise.all(
       attachments.map(async (item) => {
-        if (item.contentBase64) {
-          return {
-            filename: item.filename,
-            content: Buffer.from(item.contentBase64, "base64"),
-            contentType: item.contentType ?? undefined,
-          };
+        if (!item.url) {
+          throw new Error(`Attachment ${item.filename} missing URL`);
         }
-        if (item.url) {
-          const response = await axios.get<ArrayBuffer>(item.url, { responseType: "arraybuffer" });
-          return {
-            filename: item.filename,
-            content: Buffer.from(response.data as ArrayBuffer),
-            contentType: item.contentType ?? undefined,
-          };
-        }
-        throw new Error("Attachment missing content");
+        
+        // Download file from Catbox URL
+        const response = await axios.get<ArrayBuffer>(item.url, { responseType: "arraybuffer" });
+        return {
+          filename: item.filename,
+          content: Buffer.from(response.data as ArrayBuffer),
+          contentType: item.contentType ?? undefined,
+        };
       })
     );
 
@@ -107,6 +102,9 @@ messagesRouter.post("/", async (req, res, next) => {
       inboxId,
       direction: "outbound",
       subject,
+      senderEmail: from.trim(),
+      recipientEmails: [...to, ...(cc || []), ...(bcc || [])],
+      threadId: threadId || null,
       previewText: text?.slice(0, 120) ?? html?.replace(/<[^>]+>/g, "").slice(0, 120) ?? "",
       bodyPlain: text ?? null,
       bodyHtml: html ?? null,
@@ -114,15 +112,16 @@ messagesRouter.post("/", async (req, res, next) => {
     });
 
     await Promise.all(
-      resolvedAttachments.map((att) =>
-        addAttachment({
+      resolvedAttachments.map((att) => {
+        const attachmentPayload = attachments.find((a) => a.filename === att.filename);
+        return addAttachment({
           messageId: record.id,
           filename: att.filename,
           mimetype: att.contentType ?? "application/octet-stream",
           size: att.content.length,
-          url: attachments.find((a) => a.filename === att.filename)?.url ?? "",
-        })
-      )
+          url: attachmentPayload?.url ?? "", // Use the Catbox URL from the payload
+        });
+      })
     );
 
     return res.status(202).json(record);

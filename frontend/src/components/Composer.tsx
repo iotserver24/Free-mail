@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { SendMessagePayload, Email } from "../lib/api";
+import { uploadFileToCatbox } from "../lib/api";
 
 interface ComposerProps {
   emails?: Email[];
@@ -8,13 +9,23 @@ interface ComposerProps {
   sending: boolean;
   error?: string | null;
   pulseSignal?: number;
+  initialValues?: {
+    to?: string;
+    subject?: string;
+    body?: string;
+    replyTo?: string; // For reply, pre-fill the "from" field
+    threadId?: string | null; // For threading
+  };
+  onClose?: () => void;
 }
 
 interface LocalAttachment {
   id: string;
   filename: string;
-  contentBase64: string;
-  contentType: string;
+  file: File;
+  url?: string; // Catbox URL after upload
+  uploading?: boolean;
+  error?: string;
 }
 
 const templates = [
@@ -35,17 +46,33 @@ const templates = [
   },
 ];
 
-export function Composer({ emails = [], onSend, sending, error, pulseSignal }: ComposerProps) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+export function Composer({ emails = [], onSend, sending, error, pulseSignal, initialValues, onClose }: ComposerProps) {
+  const [from, setFrom] = useState(initialValues?.replyTo || "");
+  const [to, setTo] = useState(initialValues?.to || "");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [subject, setSubject] = useState(initialValues?.subject || "");
+  const [body, setBody] = useState(initialValues?.body || "");
+  const [threadId, setThreadId] = useState<string | null>(initialValues?.threadId || null);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [highlight, setHighlight] = useState(false);
 
-  const isValid = useMemo(() => from.trim().length > 0 && to.trim().length > 0 && subject.trim().length > 0, [from, to, subject]);
+  // Update form when initialValues change
+  useEffect(() => {
+    if (initialValues) {
+      if (initialValues.to) setTo(initialValues.to);
+      if (initialValues.subject) setSubject(initialValues.subject);
+      if (initialValues.body) setBody(initialValues.body);
+      if (initialValues.replyTo) setFrom(initialValues.replyTo);
+      if (initialValues.threadId !== undefined) setThreadId(initialValues.threadId);
+    }
+  }, [initialValues]);
+
+  const isValid = useMemo(() => {
+    const hasRequiredFields = from.trim().length > 0 && to.trim().length > 0 && subject.trim().length > 0;
+    const allAttachmentsReady = attachments.every(att => att.url && !att.uploading && !att.error);
+    return hasRequiredFields && allAttachmentsReady;
+  }, [from, to, subject, attachments]);
 
   useEffect(() => {
     if (pulseSignal === undefined) return;
@@ -64,27 +91,64 @@ export function Composer({ emails = [], onSend, sending, error, pulseSignal }: C
     const files = event.target.files;
     if (!files) return;
 
-    const results = await Promise.all(
-      Array.from(files).map(
-        (file) =>
-          new Promise<LocalAttachment>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const base64 = (reader.result as string).split(",")[1];
-              resolve({
-                id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-                filename: file.name,
-                contentBase64: base64,
-                contentType: file.type || "application/octet-stream",
-              });
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          })
-      )
-    );
+    // Check file size limit (25MB)
+    const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+    const oversizedFiles = Array.from(files).filter(file => file.size > maxSize);
+    if (oversizedFiles.length > 0) {
+      alert(`Some files exceed the 25MB limit: ${oversizedFiles.map(f => f.name).join(", ")}`);
+      event.target.value = "";
+      return;
+    }
 
-    setAttachments((prev) => [...prev, ...results]);
+    // Create attachment entries first (with uploading state)
+    const newAttachments: LocalAttachment[] = Array.from(files).map((file) => ({
+      id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      filename: file.name,
+      file,
+      uploading: true,
+    }));
+
+    // Add to attachments list immediately (shows uploading state)
+    setAttachments((prev) => [...prev, ...newAttachments]);
+
+    // Upload files to Catbox
+    try {
+      const uploadResults = await Promise.all(
+        Array.from(files).map(async (file, index) => {
+          try {
+            const url = await uploadFileToCatbox(file);
+            return { index, url, error: null };
+          } catch (error) {
+            return { 
+              index, 
+              url: null, 
+              error: error instanceof Error ? error.message : "Upload failed" 
+            };
+          }
+        })
+      );
+
+      // Update attachments with URLs or errors
+      setAttachments((prev) =>
+        prev.map((att) => {
+          const result = uploadResults.find((r) => 
+            newAttachments[r.index]?.id === att.id
+          );
+          if (result) {
+            return {
+              ...att,
+              url: result.url || undefined,
+              uploading: false,
+              error: result.error || undefined,
+            };
+          }
+          return att;
+        })
+      );
+    } catch (error) {
+      console.error("Error uploading files:", error);
+    }
+
     event.target.value = "";
   }
 
@@ -100,6 +164,21 @@ export function Composer({ emails = [], onSend, sending, error, pulseSignal }: C
     const ccList = parseList(cc);
     const bccList = parseList(bcc);
 
+    // Filter out attachments that failed to upload or are still uploading
+    const validAttachments = attachments.filter(
+      (att) => att.url && !att.uploading && !att.error
+    );
+
+    if (attachments.some(att => att.uploading)) {
+      alert("Please wait for all files to finish uploading before sending.");
+      return;
+    }
+
+    if (attachments.some(att => att.error)) {
+      alert("Some files failed to upload. Please remove them or try again.");
+      return;
+    }
+
     await onSend({
       from: from.trim(),
       to: toList,
@@ -107,29 +186,51 @@ export function Composer({ emails = [], onSend, sending, error, pulseSignal }: C
       bcc: bccList.length ? bccList : undefined,
       subject,
       text: body,
-      attachments: attachments.map(({ filename, contentBase64, contentType }) => ({
+      threadId: threadId || undefined,
+      attachments: validAttachments.length > 0 ? validAttachments.map(({ filename, url, file }) => ({
         filename,
-        contentBase64,
-        contentType,
-      })),
+        url: url!,
+        contentType: file.type || "application/octet-stream",
+      })) : undefined,
     });
 
-    setFrom("");
-    setTo("");
-    setSubject("");
-    setBody("");
+    // Reset form (but keep initial values if provided)
+    if (!initialValues) {
+      setFrom("");
+      setTo("");
+      setSubject("");
+      setBody("");
+    } else {
+      // Reset to initial values
+      setTo(initialValues.to || "");
+      setSubject(initialValues.subject || "");
+      setBody(initialValues.body || "");
+    }
     setAttachments([]);
     setCc("");
     setBcc("");
+    
+    // Scroll to composer and close if onClose provided
+    if (onClose) {
+      setTimeout(() => {
+        document.getElementById("composer-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        onClose();
+      }, 100);
+    }
   }
 
   return (
     <form id="composer-panel" className={`panel composer-panel ${highlight ? "composer-highlight" : ""}`} onSubmit={handleSubmit}>
       <div className="panel-header composer-header">
         <div>
-          <h3>Compose</h3>
+          <h3>{initialValues ? (initialValues.to ? "Reply" : "Forward") : "Compose"}</h3>
           <small>{isValid ? "Ready to ship" : "Fill out sender, recipients & subject"}</small>
         </div>
+        {initialValues && onClose && (
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+        )}
         <div className="template-chips">
           {templates.map((template) => (
             <button type="button" key={template.label} className="chip" onClick={() => {
@@ -192,21 +293,39 @@ export function Composer({ emails = [], onSend, sending, error, pulseSignal }: C
         </label>
         <div className="attachment-row">
           <label htmlFor="fileInput" className="btn btn-ghost attach-btn">
-            📎 Attach
+            📎 Attach (Max 25MB per file)
           </label>
-          <input id="fileInput" type="file" multiple hidden onChange={handleFileChange} />
-          <span>{attachments.length} attachment(s)</span>
+          <input 
+            id="fileInput" 
+            type="file" 
+            multiple 
+            hidden 
+            onChange={handleFileChange}
+            accept="*/*"
+          />
+          <span>
+            {attachments.length} attachment(s)
+            {attachments.some(att => att.uploading) && " (Uploading...)"}
+          </span>
         </div>
         {attachments.length > 0 && (
           <div className="attachments">
-            {attachments.map((att) => (
-              <div key={att.id} className="attachment-pill">
-                <span>{att.filename}</span>
-                <button type="button" onClick={() => handleRemoveAttachment(att.id)}>
-                  ✕
-                </button>
-              </div>
-            ))}
+            {attachments.map((att) => {
+              const fileSizeMB = (att.file.size / (1024 * 1024)).toFixed(2);
+              return (
+                <div key={att.id} className={`attachment-pill ${att.error ? "attachment-error" : ""} ${att.uploading ? "attachment-uploading" : ""}`}>
+                  <span>
+                    {att.filename} ({fileSizeMB} MB)
+                    {att.uploading && " ⏳ Uploading..."}
+                    {att.error && ` ❌ ${att.error}`}
+                    {att.url && !att.uploading && !att.error && " ✓"}
+                  </span>
+                  <button type="button" onClick={() => handleRemoveAttachment(att.id)} disabled={att.uploading}>
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
         <div className="composer-actions">

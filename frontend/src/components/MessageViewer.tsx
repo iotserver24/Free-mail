@@ -4,11 +4,13 @@ interface MessageViewerProps {
   message?: Message | null;
   isLoading: boolean;
   refetching?: boolean;
+  onReply?: (message: Message) => void;
+  onForward?: (message: Message) => void;
 }
 
 const STATUS_PATH: Array<Message["status"]> = ["queued", "sent", "received", "failed"];
 
-export function MessageViewer({ message, isLoading, refetching }: MessageViewerProps) {
+export function MessageViewer({ message, isLoading, refetching, onReply, onForward }: MessageViewerProps) {
   if (isLoading) {
     return (
       <div className="panel message-panel">
@@ -39,24 +41,49 @@ export function MessageViewer({ message, isLoading, refetching }: MessageViewerP
   const timelineIndexRaw = STATUS_PATH.indexOf(message.status);
   const timelineIndex = timelineIndexRaw === -1 ? STATUS_PATH.length - 1 : timelineIndexRaw;
 
+  const formatDate = (value?: string | Date | null) => {
+    if (!value) return "Unknown date";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "Unknown date";
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
   return (
     <div className="panel message-panel">
       <div className="panel-header viewer-header">
-        <div>
-          <p className="eyebrow">Live preview</p>
-          <h2>{message.subject}</h2>
+        <div className="viewer-header-content">
+          <h2>{message.subject || "(No subject)"}</h2>
+          <div className="viewer-meta-info">
+            <div className="viewer-from-to">
+              <span className="viewer-label">From:</span>
+              <span className="viewer-value">{message.sender_email || "Unknown"}</span>
+            </div>
+            <div className="viewer-from-to">
+              <span className="viewer-label">To:</span>
+              <span className="viewer-value">{message.recipient_emails?.join(", ") || "Unknown"}</span>
+            </div>
+            <div className="viewer-date">{formatDate(message.created_at)}</div>
+          </div>
         </div>
         <div className="viewer-actions">
           {refetching && <span className="inline-indicator">Syncing…</span>}
-          <button type="button" className="btn btn-ghost">
-            Reply
-          </button>
-          <button type="button" className="btn btn-ghost">
-            Forward
-          </button>
-          <button type="button" className="btn btn-primary">
-            Archive
-          </button>
+          {message.direction === "inbound" && onReply && (
+            <button type="button" className="btn btn-ghost" onClick={() => onReply(message)}>
+              Reply
+            </button>
+          )}
+          {onForward && (
+            <button type="button" className="btn btn-ghost" onClick={() => onForward(message)}>
+              Forward
+            </button>
+          )}
         </div>
       </div>
       <div className="message-viewer">
@@ -71,7 +98,7 @@ export function MessageViewer({ message, isLoading, refetching }: MessageViewerP
           </article>
           <article>
             <span>Received</span>
-            <strong>{new Date(message.created_at).toLocaleString()}</strong>
+            <strong>{formatDate(message.created_at)}</strong>
           </article>
           <article>
             <span>Preview</span>
@@ -102,6 +129,7 @@ export function MessageViewer({ message, isLoading, refetching }: MessageViewerP
 
         {message.attachments && message.attachments.length > 0 && (
           <section className="message-attachments">
+            <h3 className="attachments-title">Attachments</h3>
             <div className="attachments">
               {message.attachments.map((att) => (
                 <a key={att.id} className="attachment-pill" href={att.url} target="_blank" rel="noreferrer">

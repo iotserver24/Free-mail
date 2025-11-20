@@ -4,6 +4,9 @@ export interface MessageRecord {
   inbox_id: string | null;
   direction: "inbound" | "outbound";
   subject: string;
+  sender_email: string | null; // Email address of sender
+  recipient_emails: string[]; // Array of recipient email addresses
+  thread_id: string | null; // For grouping replies/forwards with original
   preview_text: string | null;
   body_plain: string | null;
   body_html: string | null;
