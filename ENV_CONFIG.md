@@ -6,7 +6,7 @@ All backend configuration is in `backend/.env`. Key settings:
 
 ### Critical Connection Points:
 
-1. **CF_WEBHOOK_SECRET** = `super-secret`
+1. **CF_WEBHOOK_SECRET** = `super-secret`9
    - ⚠️ **MUST match** `WEBHOOK_SECRET` in Cloudflare Worker
    - Used to authenticate webhook requests from Cloudflare
 
