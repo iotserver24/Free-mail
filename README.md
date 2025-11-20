@@ -29,6 +29,7 @@ Self-hosted email studio that lets you own custom domains, inboxes, and outbound
 | `backend/` | Express REST API (`src/index.ts`) plus docs in `backend/docs/`. Handles auth, domains, emails, inboxes, messages, attachments, and webhooks. |
 | `frontend/` | React + Vite SPA with mailbox UI (`src/components/*`) and hooks for authenticated API access. |
 | `cloudflare-worker/` | Worker script (`email-webhook.js`) that receives Cloudflare Email Routing events and forwards them to `/api/webhooks/cloudflare`. |
+| `HOSTING_GUIDE.md` | **Start here for hosting!** Complete step-by-step guide to deploying backend, frontend, and worker. |
 | `ATTACHMENTS.md`, `ENV_CONFIG.md`, `MONGODB_SETUP.md`, `SETUP.md`, `DEPLOYMENT.md`, `VERCEL_DEPLOY.md` | Reference docs copied into this README. |
 
 ---
@@ -182,6 +183,7 @@ Whenever the backend URL changes (local ngrok vs production), update `BACKEND_UR
 
 ## Deployment Notes
 
+- **Full Guide**: 👉 **[Read HOSTING_GUIDE.md](./HOSTING_GUIDE.md)** for a complete, step-by-step walkthrough of deploying the Backend, Frontend, and Cloudflare Worker.
 - Use a container-friendly host (Railway, Render, Fly.io, plain VM). Vercel serverless is **not** recommended because Express sessions are stateful.
 - Build commands: `npm install && npm run build` inside `backend/`, start with `npm start`.
 - Provision a managed MongoDB cluster (Atlas) and supply `MONGODB_URL`.
@@ -189,7 +191,7 @@ Whenever the backend URL changes (local ngrok vs production), update `BACKEND_UR
   1. Update Cloudflare Worker `BACKEND_URL`.
   2. Point frontend `VITE_API_BASE_URL` at the new API.
   3. Redeploy frontend (e.g., Vercel/Netlify or static hosting behind a CDN).
-- See `DEPLOYMENT.md` and `VERCEL_DEPLOY.md` for platform-specific steps and comparisons.
+- See `DEPLOYMENT.md` and `VERCEL_DEPLOY.md` for platform-specific comparisons if needed.
 
 ---
 
