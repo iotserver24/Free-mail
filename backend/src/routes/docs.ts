@@ -1,5 +1,6 @@
 import { Router } from "express";
 import swaggerUi from "swagger-ui-express";
+import type { JsonObject } from "swagger-ui-express";
 import path from "path";
 import fs from "fs";
 
@@ -7,22 +8,25 @@ const docsRouter = Router();
 
 const swaggerPath = path.resolve(__dirname, "..", "..", "swagger.json");
 
-let swaggerDocument: unknown;
-try {
-  const fileContents = fs.readFileSync(swaggerPath, "utf-8");
-  swaggerDocument = JSON.parse(fileContents);
-} catch (error) {
-  console.error("Failed to read swagger.json. Ensure it exists at project root.", error);
-  swaggerDocument = {
-    openapi: "3.0.0",
-    info: {
-      title: "Free-mail API",
-      version: "unavailable",
-      description: "Unable to load swagger.json. Check server logs."
-    },
-    paths: {}
-  };
+function loadSwaggerDocument(): JsonObject {
+  try {
+    const fileContents = fs.readFileSync(swaggerPath, "utf-8");
+    return JSON.parse(fileContents) as JsonObject;
+  } catch (error) {
+    console.error("Failed to read swagger.json. Ensure it exists at project root.", error);
+    return {
+      openapi: "3.0.0",
+      info: {
+        title: "Free-mail API",
+        version: "unavailable",
+        description: "Unable to load swagger.json. Check server logs."
+      },
+      paths: {}
+    } as JsonObject;
+  }
 }
+
+const swaggerDocument = loadSwaggerDocument();
 
 docsRouter.get("/swagger.json", (_req, res) => {
   res.setHeader("Content-Type", "application/json");
