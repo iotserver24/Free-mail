@@ -12,6 +12,7 @@ import { webhooksRouter } from "./routes/webhooks";
 import { domainsRouter } from "./routes/domains";
 import { emailsRouter } from "./routes/emails";
 import { inboxesRouter } from "./routes/inboxes";
+import { docsRouter } from "./routes/docs";
 
 const app = express();
 
@@ -116,6 +117,7 @@ app.use("/api/attachments", requireAuth, attachmentsRouter);
 // Other webhook routes can use raw for direct email forwarding
 app.use("/api/webhooks/cloudflare", express.json({ limit: "25mb" }), webhooksRouter);
 app.use("/api/webhooks", express.raw({ type: ["text/plain", "message/rfc822"], limit: "25mb" }), webhooksRouter);
+app.use("/docs", docsRouter);
 
 // Error handler - must be last
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
