@@ -17,6 +17,10 @@ import { uploadsRouter } from "./routes/uploads";
 
 const app = express();
 
+// Required so Express marks cookies as secure when behind a proxy (Vercel, Render, etc.)
+const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS ?? "1", 10);
+app.set("trust proxy", trustProxyHops);
+
 // Basic error handling for app initialization
 try {
   const allowedOrigins = (config.corsOrigins?.split(",") || [config.frontendUrl]).map((origin) =>
