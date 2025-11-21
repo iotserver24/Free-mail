@@ -19,7 +19,7 @@ This folder centralizes everything someone new to the backend needs: how the ser
    npm install
    npm run dev    # or npm run build && npm start
    ```
-3. Keep the frontend pointing to the backend URL via `VITE_API_URL` (or similar) and send requests with `withCredentials: true` so the session cookie is preserved.
+3. Keep the frontend pointing to the backend URL via `NUXT_PUBLIC_API_BASE` (or equivalent) and send requests with `credentials: "include"` so the session cookie is preserved.
 
 ## Hosting Note
 

@@ -3,7 +3,7 @@
 Self-hosted email studio that lets you own custom domains, inboxes, and outbound campaigns without relying on SaaS vendors. The monorepo contains:
 
 - **Backend** — Express + TypeScript API backed by MongoDB, Brevo SMTP, Catbox for attachments, and Cloudflare Email Routing for inbound delivery.
-- **Frontend** — React (Vite) dashboard for managing domains, inboxes, sending mail, and reading threads.
+- **Frontend** — Nuxt 4 (Vue 3) SPA for managing domains, inboxes, sending mail, and reading threads.
 - **Cloudflare Worker** — Bridges Email Routing to the backend webhook so inbound messages land in MongoDB.
 
 ---
@@ -27,7 +27,7 @@ Self-hosted email studio that lets you own custom domains, inboxes, and outbound
 | Path | Purpose |
 | --- | --- |
 | `backend/` | Express REST API (`src/index.ts`) plus docs in `backend/docs/`. Handles auth, domains, emails, inboxes, messages, attachments, and webhooks. |
-| `frontend/` | React + Vite SPA with mailbox UI (`src/components/*`) and hooks for authenticated API access. |
+| `frontend/` | Nuxt + Vue single-page app (`app/`, `components/`) that consumes the API via composables (`composables/useApi.ts`). |
 | `cloudflare-worker/` | Worker script (`email-webhook.js`) that receives Cloudflare Email Routing events and forwards them to `/api/webhooks/cloudflare`. |
 | `HOSTING_GUIDE.md` | **Start here for hosting!** Complete step-by-step guide to deploying backend, frontend, and worker. |
 | `ATTACHMENTS.md`, `ENV_CONFIG.md`, `MONGODB_SETUP.md`, `SETUP.md`, `DEPLOYMENT.md`, `VERCEL_DEPLOY.md` | Reference docs copied into this README. |
@@ -90,7 +90,8 @@ Self-hosted email studio that lets you own custom domains, inboxes, and outbound
 
 | Name | Description |
 | --- | --- |
-| `VITE_API_BASE_URL` | Base URL of the backend (e.g., `http://localhost:4000`). Must match cookie domain/origin settings. |
+| `NUXT_PUBLIC_API_BASE` | Base URL of the backend (e.g., `http://localhost:4000`). Must match cookie domain/origin settings. |
+| `NUXT_PUBLIC_CATBOX_USERHASH` | Optional Catbox user hash so the browser can upload attachments directly. Leave blank to use anonymous uploads. |
 
 ### Cloudflare Worker (Wrangler secrets)
 
@@ -117,7 +118,7 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
 
 2. **Configure environment**
    - Copy `backend/.env.example` (or follow `ENV_CONFIG.md`) and fill every variable above.
-   - Create `frontend/.env` with `VITE_API_BASE_URL=http://localhost:4000`.
+   - Create `frontend/.env` with `NUXT_PUBLIC_API_BASE=http://localhost:4000`.
    - Use `wrangler secret put BACKEND_URL`, `WEBHOOK_SECRET`, `WEBHOOK_PATH` inside `cloudflare-worker/`.
 
 3. **Start dependencies**
@@ -132,7 +133,7 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
 
    # terminal 2
    cd frontend
-   npm run dev
+   npm run dev # serves Nuxt on http://localhost:3000
 
    # terminal 3 (only needed for inbound tests)
    cd cloudflare-worker
@@ -140,7 +141,7 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
    ```
 
 5. **Login & test**
-   - Visit `http://localhost:5173`, log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+- Visit `http://localhost:3000`, log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
    - Create domains/emails/inboxes, send yourself a test email, and verify it lands in MongoDB.
 
 ---
@@ -189,7 +190,7 @@ Whenever the backend URL changes (local ngrok vs production), update `BACKEND_UR
 - Provision a managed MongoDB cluster (Atlas) and supply `MONGODB_URL`.
 - After backend deployment:
   1. Update Cloudflare Worker `BACKEND_URL`.
-  2. Point frontend `VITE_API_BASE_URL` at the new API.
+  2. Point frontend `NUXT_PUBLIC_API_BASE` at the new API.
   3. Redeploy frontend (e.g., Vercel/Netlify or static hosting behind a CDN).
 - See `DEPLOYMENT.md` and `VERCEL_DEPLOY.md` for platform-specific comparisons if needed.
 

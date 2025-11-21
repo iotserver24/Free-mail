@@ -7,7 +7,7 @@ Use this document when provisioning secrets, running locally, or deploying to a 
 | Name | Required | Notes |
 | --- | --- | --- |
 | `PORT` | No (default `4000`) | HTTP port for Express when self-hosting. |
-| `FRONTEND_URL` | No (default `http://localhost:5173`) | Single origin used for CORS + session cookie domain. |
+| `FRONTEND_URL` | No (default `http://localhost:3000`) | Single origin used for CORS + session cookie domain. |
 | `CORS_ORIGINS` | No | Optional comma-separated list of allowed origins (overrides `FRONTEND_URL`). |
 | `MONGODB_URL` | **Yes in production** | MongoDB connection string (`mongodb+srv://...`). The dev fallback is `mongodb://localhost:27017/freemail`. |
 | `BREVO_SMTP_HOST` | Yes | Usually `smtp-relay.brevo.com`. |

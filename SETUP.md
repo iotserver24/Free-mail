@@ -25,7 +25,8 @@ Update `backend/.env` with your credentials:
 
 ### Frontend (.env)
 Update `frontend/.env`:
-- `VITE_API_BASE_URL` - Backend API URL (default: http://localhost:4000)
+- `NUXT_PUBLIC_API_BASE` - Backend API URL (default: http://localhost:4000)
+- `NUXT_PUBLIC_CATBOX_USERHASH` - (Optional) Catbox user hash for authenticated uploads
 
 ## 3. Cloudflare Email Routing Setup
 
@@ -116,8 +117,7 @@ For local development, expose your backend using ngrok:
    npm run dev
    ```
 
-3. **Login**: 
-   - Go to http://localhost:5173
+- Go to http://localhost:3000
    - Use your `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`
 
 4. **Test Email Reception**:

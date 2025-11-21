@@ -46,6 +46,13 @@ wrangler secret put WEBHOOK_PATH
 | `PORT=4000` | `BACKEND_URL=https://...` | Backend API location |
 | N/A | `WEBHOOK_PATH=/api/webhooks/cloudflare` | API endpoint path |
 
+## Frontend Configuration (`frontend/.env`)
+
+| Env Var | Purpose |
+| --- | --- |
+| `NUXT_PUBLIC_API_BASE=http://localhost:4000` | Points the Nuxt SPA at the backend origin. Must match CORS settings. |
+| `NUXT_PUBLIC_CATBOX_USERHASH=` | Optional Catbox user hash used by the composer when uploading attachments directly from the browser. Leave empty to rely on anonymous uploads. |
+
 ## Quick Setup Checklist
 
 ### Backend:

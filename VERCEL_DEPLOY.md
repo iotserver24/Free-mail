@@ -201,7 +201,8 @@ wrangler deploy
 
 Update `frontend/.env`:
 ```
-VITE_API_BASE_URL=https://your-project.vercel.app
+NUXT_PUBLIC_API_BASE=https://your-project.vercel.app
+NUXT_PUBLIC_CATBOX_USERHASH= # optional
 ```
 
 ### 3. Test

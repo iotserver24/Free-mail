@@ -16,8 +16,8 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
 
 ## Base URLs & CORS
 
-- Point the frontend `.env` to the backend origin, e.g. `VITE_API_URL=http://localhost:4000`.
-- Backend CORS allowlist is controlled by `FRONTEND_URL` or `CORS_ORIGINS`. If you need multiple dev origins, set `CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:4173`.
+- Point the frontend `.env` to the backend origin, e.g. `NUXT_PUBLIC_API_BASE=http://localhost:4000`.
+- Backend CORS allowlist is controlled by `FRONTEND_URL` or `CORS_ORIGINS`. If you need multiple dev origins, set `CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000`.
 - Always hit `/health` to confirm connectivity before showing login UI.
 
 ## Working With Data
@@ -67,14 +67,14 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
 
 ## Dev Workflow Tips
 
-- Enable `withCredentials` globally in your axios instance:  
+- In Nuxt, leverage `$fetch` or `ofetch` with runtime config so every request automatically includes cookies:  
   ```ts
-  const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    withCredentials: true,
+  const api = $fetch.create({
+    baseURL: useRuntimeConfig().public.apiBase,
+    credentials: "include",
   });
   ```
-- When hot-reloading Vite, the backend session remains valid as long as you don’t clear cookies.
+- When running the Nuxt dev server, the backend session remains valid as long as you don’t clear cookies.
 - Use the `/` root endpoint response to show a nice status indicator in the UI (it returns `status`, `health`, and route hints).
 
 

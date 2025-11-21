@@ -43,7 +43,7 @@ Since many users are new to transactional email services, here is a step-by-step
 The system consists of three main components that need to be hosted:
 
 1.  **Backend (Node.js/Express)**: Handles API requests, authentication, and email processing.
-2.  **Frontend (React/Vite)**: The user interface for managing inboxes and emails.
+2.  **Frontend (Nuxt/Vue)**: The single-page application for managing inboxes and emails.
 3.  **Cloudflare Worker**: Intercepts inbound emails and forwards them to the backend.
 
 ---
@@ -135,11 +135,12 @@ This is crucial for receiving emails.
 
 1.  **Connect** your repo to Vercel, Netlify, or Cloudflare Pages.
 2.  **Root Directory**: Set to `frontend`.
-3.  **Build Command**: `npm run build`.
-4.  **Output Directory**: `dist`.
+3.  **Build Command**: `npm run generate` (produces a static bundle because `ssr` is disabled).
+4.  **Output Directory**: `.output/public`.
 5.  **Environment Variables**:
-    -   `VITE_API_BASE_URL`: Your deployed backend URL (e.g., `https://freemail-api.railway.app`).
-6.  **Deploy**.
+    -   `NUXT_PUBLIC_API_BASE`: Your deployed backend URL (e.g., `https://freemail-api.railway.app`).
+    -   `NUXT_PUBLIC_CATBOX_USERHASH` (optional): Catbox user hash if you configured one for direct uploads.
+6.  **Deploy**. (If your platform expects an SPA dev server instead of static files, use `npm run build` and deploy the `.output` Nitro server.)
 
 ### Phase 5: Final Configuration
 
@@ -160,7 +161,7 @@ This is crucial for receiving emails.
 
 ## 🔧 Troubleshooting
 
--   **CORS Errors**: Check `FRONTEND_URL` in backend and `VITE_API_BASE_URL` in frontend. They must match exactly (no trailing slashes usually).
+-   **CORS Errors**: Check `FRONTEND_URL` in backend and `NUXT_PUBLIC_API_BASE` in frontend. They must match exactly (no trailing slashes usually).
 -   **Emails not arriving**:
     -   Check Cloudflare Email Routing logs for "Dropped" or "Failed".
     -   Check Backend logs for "Webhook received".
