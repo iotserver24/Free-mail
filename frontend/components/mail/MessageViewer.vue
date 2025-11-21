@@ -60,6 +60,74 @@ function recipientLabel(entry: MessageRecord) {
   return "";
 }
 
+const canReply = computed(() => Boolean(props.message?.sender_email));
+const canForward = computed(() => Boolean(props.message));
+
+function stripHtml(html: string) {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function getPlainBody(entry: MessageRecord) {
+  if (entry.body_plain) {
+    return entry.body_plain;
+  }
+  if (entry.body_html) {
+    return stripHtml(entry.body_html);
+  }
+  return "";
+}
+
+function quoteBody(text: string) {
+  if (!text) return "";
+  return text
+    .split(/\r?\n/)
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
+function buildReplyContext(entry: MessageRecord) {
+  const to = entry.sender_email ? [entry.sender_email] : [];
+  const subject = entry.subject?.match(/^re:/i) ? entry.subject : `Re: ${entry.subject || ""}`;
+  const quoted = quoteBody(getPlainBody(entry));
+  const header = `On ${formatDateTime(entry.created_at)}, ${entry.sender_email || "Unknown"} wrote:\n`;
+  return {
+    to,
+    subject: subject.trim(),
+    body: `\n\n${header}${quoted}\n\n`,
+    threadId: entry.thread_id,
+  };
+}
+
+function buildForwardContext(entry: MessageRecord) {
+  const subject = entry.subject?.match(/^fwd:/i) ? entry.subject : `Fwd: ${entry.subject || ""}`;
+  const headerLines = [
+    "---------- Forwarded message ----------",
+    `From: ${entry.sender_email || "Unknown"}`,
+    `Date: ${formatDateTime(entry.created_at)}`,
+    `Subject: ${entry.subject || "(no subject)"}`,
+    `To: ${entry.recipient_emails?.join(", ") || "Undisclosed recipients"}`,
+    "",
+  ];
+  const body = `\n\n${headerLines.join("\n")}${getPlainBody(entry)}\n\n`;
+  return {
+    subject: subject.trim(),
+    body,
+    threadId: entry.thread_id,
+  };
+}
+
+function handleReply() {
+  if (!props.message) return;
+  const context = buildReplyContext(props.message);
+  mail.toggleComposer(true, context);
+}
+
+function handleForward() {
+  if (!props.message) return;
+  const context = buildForwardContext(props.message);
+  mail.toggleComposer(true, context);
+}
+
 </script>
 
 <template>
@@ -92,6 +160,23 @@ function recipientLabel(entry: MessageRecord) {
             {{ toLabel }}
           </p>
         </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          v-if="canReply"
+          class="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-brand-400/60"
+          @click="handleReply"
+        >
+          Reply
+        </button>
+        <button
+          v-if="canForward"
+          class="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-brand-400/60"
+          @click="handleForward"
+        >
+          Forward
+        </button>
       </div>
 
       <div class="space-y-4">

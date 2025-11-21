@@ -2,7 +2,7 @@
 import { reactive, ref, watch } from "vue";
 import { XMarkIcon, PaperClipIcon } from "@heroicons/vue/24/outline";
 import type { EmailRecord } from "../../types/api";
-import type { ComposePayload, AttachmentPayload } from "../../types/messaging";
+import type { AttachmentPayload, ComposeContext, ComposePayload } from "../../types/messaging";
 import { uploadToCatbox } from "../../lib/catbox";
 import { useToasts } from "../../composables/useToasts";
 
@@ -10,6 +10,7 @@ const props = defineProps<{
   open: boolean;
   emails: EmailRecord[];
   activeInboxId: string | null;
+  context?: ComposeContext | null;
   submit?: (payload: ComposePayload) => Promise<void> | void;
 }>();
 
@@ -30,7 +31,11 @@ const form = reactive({
 
 const attachments = ref<AttachmentPayload[]>([]);
 const uploading = ref(false);
+const uploadingFileName = ref<string | null>(null);
+const uploadProgress = ref(0);
 const sending = ref(false);
+
+const MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 watch(
   () => props.activeInboxId,
@@ -53,13 +58,47 @@ function resetForm() {
   attachments.value = [];
 }
 
+function resetUploadState() {
+  uploading.value = false;
+  uploadingFileName.value = null;
+  uploadProgress.value = 0;
+}
+
+function applyContext(context: ComposeContext | null | undefined) {
+  if (!context) return;
+  form.to = context.to?.join(", ") ?? form.to;
+  form.cc = context.cc?.join(", ") ?? form.cc;
+  form.bcc = context.bcc?.join(", ") ?? form.bcc;
+  if (typeof context.subject === "string") {
+    form.subject = context.subject;
+  }
+  if (typeof context.body === "string") {
+    form.body = context.body;
+  }
+}
+
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) {
       resetForm();
+      resetUploadState();
+      return;
     }
+    resetForm();
+    applyContext(props.context);
   }
+);
+
+watch(
+  () => props.context,
+  (context) => {
+    if (!props.open) return;
+    resetForm();
+    applyContext(context);
+    resetUploadState();
+  },
+  { deep: true }
 );
 
 function parseRecipients(raw: string) {
@@ -75,8 +114,20 @@ async function handleFiles(event: Event) {
   uploading.value = true;
   const files = Array.from(target.files);
   for (const file of files) {
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      toasts.push({
+        title: "File too large",
+        message: `${file.name} exceeds the 20MB limit.`,
+        variant: "error",
+      });
+      continue;
+    }
     try {
-      const result = await uploadToCatbox(file);
+      uploadingFileName.value = file.name;
+      uploadProgress.value = 0;
+      const result = await uploadToCatbox(file, (percent) => {
+        uploadProgress.value = percent;
+      });
       attachments.value.push({
         filename: result.filename,
         url: result.url,
@@ -93,6 +144,9 @@ async function handleFiles(event: Event) {
         message: (error as Error).message,
         variant: "error",
       });
+    } finally {
+      uploadingFileName.value = null;
+      uploadProgress.value = 0;
     }
   }
   uploading.value = false;
@@ -113,6 +167,9 @@ async function handleSend() {
       attachments: attachments.value,
     };
     if (props.submit) {
+      if (props.context?.threadId) {
+        payload.threadId = props.context.threadId;
+      }
       await props.submit(payload);
     }
     resetForm();
@@ -214,7 +271,7 @@ function removeAttachment(url: string) {
               <div>
                 <p class="text-sm font-semibold">Attachments via Catbox</p>
                 <p class="text-xs text-slate-500">
-                  Files upload directly to catbox.moe (reqtype=fileupload) before sending.
+                  Files upload directly to catbox.moe (reqtype=fileupload) before sending. Max size per file: 20MB.
                 </p>
               </div>
               <label class="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-700 px-3 py-2 text-sm text-slate-200 transition hover:border-brand-400/60">
@@ -222,6 +279,19 @@ function removeAttachment(url: string) {
                 <span>{{ uploading ? "Uploading…" : "Add files" }}</span>
                 <input type="file" class="hidden" multiple @change="handleFiles" />
               </label>
+            </div>
+
+            <div v-if="uploading" class="mt-3 space-y-2">
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>Uploading {{ uploadingFileName || "file" }}…</span>
+                <span>{{ uploadProgress }}%</span>
+              </div>
+              <div class="h-2 w-full rounded-full bg-slate-800/70">
+                <div
+                  class="h-full rounded-full bg-brand-500 transition-all"
+                  :style="{ width: `${uploadProgress}%` }"
+                />
+              </div>
             </div>
 
             <ul v-if="attachments.length" class="mt-3 space-y-2 text-sm">

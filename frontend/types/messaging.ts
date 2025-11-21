@@ -13,5 +13,15 @@ export interface ComposePayload {
   text?: string;
   html?: string;
   attachments?: AttachmentPayload[];
+  threadId?: string | null;
+}
+
+export interface ComposeContext {
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
+  body?: string;
+  threadId?: string | null;
 }
 

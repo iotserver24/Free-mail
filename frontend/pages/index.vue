@@ -85,6 +85,7 @@ async function handleLogout() {
       :open="mail.composerOpen"
       :emails="mail.emails"
       :active-inbox-id="mail.activeInboxId"
+      :context="mail.composerContext"
       :submit="handleSend"
       @close="mail.toggleComposer(false)"
     />

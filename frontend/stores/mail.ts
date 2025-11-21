@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import type { DomainRecord, EmailRecord, InboxRecord, MessageRecord } from "~/types/api";
-import type { ComposePayload } from "~/types/messaging";
+import type { ComposeContext, ComposePayload } from "~/types/messaging";
 
 interface MailState {
   domains: DomainRecord[];
@@ -12,6 +12,7 @@ interface MailState {
   threadMessages: MessageRecord[];
   activeInboxId: string | null;
   composerOpen: boolean;
+  composerContext: ComposeContext | null;
   loadingMessages: boolean;
   bootstrapped: boolean;
 }
@@ -27,6 +28,7 @@ export const useMailStore = defineStore("mail", {
     threadMessages: [],
     activeInboxId: null,
     composerOpen: false,
+    composerContext: null,
     loadingMessages: false,
     bootstrapped: false,
   }),
@@ -74,6 +76,7 @@ export const useMailStore = defineStore("mail", {
       this.selectedMessageId = null;
       this.messageDetail = null;
       this.threadMessages = [];
+      this.composerContext = null;
       this.loadMessages();
     },
     async loadMessages() {
@@ -104,8 +107,17 @@ export const useMailStore = defineStore("mail", {
         this.threadMessages = [];
       }
     },
-    toggleComposer(open?: boolean) {
-      this.composerOpen = typeof open === "boolean" ? open : !this.composerOpen;
+    toggleComposer(open?: boolean, context?: ComposeContext | null) {
+      const nextState = typeof open === "boolean" ? open : !this.composerOpen;
+      this.composerOpen = nextState;
+      if (context) {
+        this.composerContext = context;
+      } else if (nextState && !context) {
+        this.composerContext = null;
+      }
+      if (!nextState) {
+        this.composerContext = null;
+      }
     },
     async createDomain(domain: string) {
       const api = useApi();

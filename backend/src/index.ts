@@ -13,6 +13,7 @@ import { domainsRouter } from "./routes/domains";
 import { emailsRouter } from "./routes/emails";
 import { inboxesRouter } from "./routes/inboxes";
 import { docsRouter } from "./routes/docs";
+import { uploadsRouter } from "./routes/uploads";
 
 const app = express();
 
@@ -113,6 +114,7 @@ app.use("/api/emails", requireAuth, emailsRouter);
 app.use("/api/inboxes", requireAuth, inboxesRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
+app.use("/api/uploads", requireAuth, uploadsRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
 // Other webhook routes can use raw for direct email forwarding
 app.use("/api/webhooks/cloudflare", express.json({ limit: "25mb" }), webhooksRouter);
