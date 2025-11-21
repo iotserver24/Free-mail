@@ -1,32 +1,29 @@
 {
   "name": "frontend",
-  "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.90.10",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^6.27.0"
+    "@headlessui/vue": "^1.7.19",
+    "@heroicons/vue": "^2.1.5",
+    "nuxt": "^4.2.1",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.24",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/node": "^24.10.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.1.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.3",
-    "vite": "^7.2.2"
+    "@nuxtjs/tailwindcss": "^6.12.0",
+    "@pinia/nuxt": "^0.5.5",
+    "@tailwindcss/forms": "^0.5.7",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3"
   }
 }

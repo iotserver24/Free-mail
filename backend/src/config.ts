@@ -25,10 +25,13 @@ if (!databaseUrl) {
   );
 }
 
+const defaultFrontendUrl = "http://localhost:3000";
+const defaultCorsOrigins = ["http://localhost:5173", defaultFrontendUrl].join(",");
+
 export const config = {
   port: parseInt(process.env.PORT ?? "4000", 10),
-  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
-  corsOrigins: process.env.CORS_ORIGINS,
+  frontendUrl: process.env.FRONTEND_URL ?? defaultFrontendUrl,
+  corsOrigins: process.env.CORS_ORIGINS ?? defaultCorsOrigins,
   brevo: {
     host: process.env.BREVO_SMTP_HOST ?? "smtp-relay.brevo.com",
     port: parseInt(process.env.BREVO_SMTP_PORT ?? "587", 10),

@@ -248,6 +248,51 @@ export async function getMessageById(userId: string, messageId: string): Promise
   };
 }
 
+export async function getThreadMessages(userId: string, threadId: string): Promise<MessageRecord[]> {
+  const db = await getDb();
+  const collection = db.collection("messages");
+
+  const messages = await collection
+    .find<{
+      id: string;
+      user_id: string;
+      inbox_id: string | null;
+      direction: string;
+      subject: string;
+      sender_email: string | null;
+      recipient_emails: string[];
+      thread_id: string | null;
+      preview_text: string | null;
+      body_plain: string | null;
+      body_html: string | null;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    }>({
+      user_id: userId,
+      thread_id: threadId,
+    })
+    .sort({ created_at: 1 })
+    .toArray();
+
+  return messages.map((msg) => ({
+    id: msg.id,
+    user_id: msg.user_id,
+    inbox_id: msg.inbox_id,
+    direction: msg.direction as MessageRecord["direction"],
+    subject: msg.subject,
+    sender_email: msg.sender_email,
+    recipient_emails: msg.recipient_emails,
+    thread_id: msg.thread_id,
+    preview_text: msg.preview_text,
+    body_plain: msg.body_plain,
+    body_html: msg.body_html,
+    status: msg.status as MessageRecord["status"],
+    created_at: msg.created_at,
+    updated_at: msg.updated_at,
+  }));
+}
+
 interface AttachmentInput {
   messageId: string;
   filename: string;

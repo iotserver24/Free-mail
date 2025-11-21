@@ -1,7 +1,14 @@
 import { Router } from "express";
 import axios from "axios";
 import { sendBrevoMail } from "../services/mailer";
-import { addAttachment, createMessage, getMessageById, listAttachments, listMessages } from "../repositories/messages";
+import {
+  addAttachment,
+  createMessage,
+  getMessageById,
+  getThreadMessages,
+  listAttachments,
+  listMessages,
+} from "../repositories/messages";
 import { getEmailByAddress } from "../repositories/emails";
 
 export const messagesRouter = Router();
@@ -24,6 +31,22 @@ messagesRouter.get("/inbox/:inboxId", async (req, res, next) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
     const records = await listMessages(req.userId!, inboxId, limit);
     return res.json(records);
+  } catch (error) {
+    next(error);
+  }
+});
+
+messagesRouter.get("/thread/:threadId", async (req, res, next) => {
+  try {
+    const { threadId } = req.params;
+    const records = await getThreadMessages(req.userId!, threadId);
+    const withAttachments = await Promise.all(
+      records.map(async (record) => {
+        const attachments = await listAttachments(record.id);
+        return { ...record, attachments };
+      })
+    );
+    return res.json(withAttachments);
   } catch (error) {
     next(error);
   }
