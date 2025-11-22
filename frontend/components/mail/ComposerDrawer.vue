@@ -309,7 +309,16 @@ async function handleAIGenerate(prompt: string) {
               const parsed = parseEmailXML(aiStreamedContent.value);
               if (parsed) {
                 form.subject = parsed.subject;
-                form.body = parsed.body;
+                
+                // If this is a reply/forward, preserve the quoted context and prepend AI content
+                if (props.context?.body && props.context.body.trim()) {
+                  // Prepend AI-generated content above the quoted reply context
+                  form.body = `${parsed.body}\n\n${props.context.body}`;
+                } else {
+                  // For new emails, just use the AI-generated body
+                  form.body = parsed.body;
+                }
+                
                 aiPromptOpen.value = false;
                 useToasts().push({
                   title: "AI Email Generated",
