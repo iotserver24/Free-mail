@@ -39,7 +39,7 @@ class AIService {
      */
     private async complete(systemPrompt: string, userPrompt: string): Promise<string> {
         if (!this.client) {
-            throw new Error("AI service is not available. Please configure OPENAI_API_KEY.");
+            throw new Error("AI service is not available. Please configure AI_API_KEY.");
         }
 
         const response = await this.client.chat.completions.create({
@@ -93,7 +93,7 @@ Return your response in JSON format with "subject" and "body" fields.`;
         xmlTemplate?: string
     ): Promise<Stream<OpenAI.Chat.Completions.ChatCompletionChunk>> {
         if (!this.client) {
-            throw new Error("AI service is not available. Please configure OPENAI_API_KEY.");
+            throw new Error("AI service is not available. Please configure AI_API_KEY.");
         }
 
         // Build context from conversation history

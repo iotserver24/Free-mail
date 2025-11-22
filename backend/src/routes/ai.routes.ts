@@ -11,7 +11,7 @@ router.get("/status", (req, res) => {
         available: aiService.isAvailable(),
         message: aiService.isAvailable()
             ? "AI service is ready"
-            : "AI service is not configured. Please set OPENAI_API_KEY in environment variables.",
+            : "AI service is not configured. Please set AI_API_KEY in environment variables.",
     });
 });
 

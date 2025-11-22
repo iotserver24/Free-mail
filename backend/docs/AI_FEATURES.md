@@ -8,13 +8,13 @@ Add these environment variables to your `.env` file:
 
 ```bash
 # AI CONFIGURATION (OpenAI SDK Format)
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_API_KEY=your-api-key-here
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_TOKENS=2000
+AI_BASE_URL=https://api.openai.com/v1
+AI_API_KEY=your-api-key-here
+AI_MODEL=gpt-4o-mini
+AI_MAX_TOKENS=2000
 ```
 
-**Note**: `OPENAI_BASE_URL` can point to any OpenAI-compatible API (OpenAI, Azure OpenAI, local LLMs, etc.)
+**Note**: `AI_BASE_URL` can point to any OpenAI-compatible API (OpenAI, Azure OpenAI, local LLMs, etc.)
 
 ---
 
