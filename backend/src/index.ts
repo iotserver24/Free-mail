@@ -14,6 +14,7 @@ import { emailsRouter } from "./routes/emails";
 import { inboxesRouter } from "./routes/inboxes";
 import { docsRouter } from "./routes/docs";
 import { uploadsRouter } from "./routes/uploads";
+import aiRouter from "./routes/ai.routes";
 
 const app = express();
 
@@ -47,12 +48,12 @@ try {
 
   app.use(express.json({ limit: "25mb" })); // Increased for attachment URLs
   app.use(morgan("dev"));
-  
+
   const sessionSecret = process.env.SESSION_SECRET;
   if (!sessionSecret && process.env.VERCEL) {
     console.warn("WARNING: SESSION_SECRET not set in Vercel environment variables!");
   }
-  
+
   app.use(
     session({
       secret: sessionSecret ?? "change-me-in-production",
@@ -74,8 +75,8 @@ app.use(attachUser);
 
 // Root endpoint for testing
 app.get("/", (_req, res) => {
-  res.json({ 
-    message: "Free-mail API", 
+  res.json({
+    message: "Free-mail API",
     status: "running",
     endpoints: {
       health: "/health",
@@ -94,11 +95,11 @@ app.get("/health", async (_req, res) => {
   } catch (error) {
     // Health endpoint should still return 200 even if DB is down
     // This allows monitoring to detect if the function itself is working
-    res.status(200).json({ 
-      status: "ok", 
-      database: "disconnected", 
+    res.status(200).json({
+      status: "ok",
+      database: "disconnected",
       error: error instanceof Error ? error.message : "unknown error",
-      timestamp: new Date().toISOString() 
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -119,6 +120,7 @@ app.use("/api/inboxes", requireAuth, inboxesRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
 app.use("/api/uploads", requireAuth, uploadsRouter);
+app.use("/api/ai", requireAuth, aiRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
 // Other webhook routes can use raw for direct email forwarding
 app.use("/api/webhooks/cloudflare", express.json({ limit: "25mb" }), webhooksRouter);
@@ -130,13 +132,13 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   console.error("Error handler:", err);
   const errorMessage = err instanceof Error ? err.message : "internal server error";
   const errorStack = err instanceof Error ? err.stack : undefined;
-  
+
   // Log full error in serverless environment
   if (process.env.VERCEL) {
     console.error("Full error:", errorStack || errorMessage);
   }
-  
-  res.status(500).json({ 
+
+  res.status(500).json({
     error: "internal server error",
     message: process.env.NODE_ENV === "development" ? errorMessage : undefined
   });

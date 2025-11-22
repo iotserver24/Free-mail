@@ -52,5 +52,12 @@ export const config = {
     email: getRequiredEnv("ADMIN_EMAIL", "admin@example.com"),
     password: getRequiredEnv("ADMIN_PASSWORD", "admin123"),
   },
+  ai: {
+    enabled: process.env.AI_ENABLED?.toLowerCase() === "true",
+    baseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+    apiKey: process.env.OPENAI_API_KEY ?? "",
+    model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS ?? "2000", 10),
+  },
 };
 

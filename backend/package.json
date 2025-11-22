@@ -25,20 +25,21 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
+    "openai": "^6.9.1",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.5",
     "@types/express-session": "^1.18.2",
-    "@types/cors": "^2.8.17",
-    "@types/swagger-ui-express": "^4.1.6",
     "@types/mailparser": "^3.4.6",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^1.4.13",
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^6.4.21",
+    "@types/swagger-ui-express": "^4.1.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }
