@@ -21,7 +21,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <div class="flex h-full flex-col overflow-hidden">
     <!-- Mobile Header with Back Button -->
     <div class="flex items-center gap-3 border-b border-white/5 bg-slate-900/50 px-4 py-3 lg:hidden">
       <button 

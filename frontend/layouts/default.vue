@@ -29,7 +29,7 @@ async function handleSend(payload: any) {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+  <div class="flex h-screen flex-col bg-slate-950 text-slate-100">
     <MailTopBar
       v-if="auth.isAuthenticated"
       :emails="mail.emails"

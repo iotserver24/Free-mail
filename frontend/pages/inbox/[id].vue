@@ -19,11 +19,11 @@ function handleSelectMessage(messageId: string) {
 </script>
 
 <template>
-  <div class="flex h-full w-full">
+  <div class="flex h-full w-full overflow-hidden">
     <!-- Message List Column -->
     <!-- Hidden on mobile if viewing a message -->
     <div 
-      class="flex h-full w-full flex-col border-r border-white/5 bg-slate-950/40 lg:w-1/3 lg:min-w-[350px]"
+      class="flex h-full w-full flex-col border-r border-white/10 bg-slate-950/40 lg:w-[30%] lg:min-w-[320px] overflow-hidden"
       :class="{ 'hidden lg:flex': isMessageView }"
     >
       <MailMessageList
@@ -37,7 +37,7 @@ function handleSelectMessage(messageId: string) {
     <!-- Message Content Column -->
     <!-- Hidden on mobile if NOT viewing a message -->
     <div 
-      class="h-full w-full flex-1 bg-slate-950/80"
+      class="h-full w-full flex-1 bg-slate-950/80 overflow-hidden"
       :class="{ 'hidden lg:block': !isMessageView }"
     >
       <NuxtPage />

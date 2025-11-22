@@ -362,5 +362,31 @@ function handleForward() {
     transform: scale(1);
   }
 }
+
+/* Custom scrollbar for message viewer */
+.flex-1.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105) rgb(15 23 42);
+}
+
+.flex-1.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.flex-1.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgb(15 23 42);
+  border-radius: 4px;
+}
+
+.flex-1.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgb(71 85 105);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.flex-1.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139);
+}
 </style>
+
 
