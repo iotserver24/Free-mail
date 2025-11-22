@@ -1,6 +1,6 @@
 import { useAuthStore } from "~/stores/auth";
 
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/"];
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore();
@@ -14,7 +14,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo("/login");
   }
 
-  if (auth.isAuthenticated && isPublic) {
+  // Only redirect to inbox if on login page and already authenticated
+  if (auth.isAuthenticated && to.path === "/login") {
+    const mail = useMailStore();
+    // If we have an active inbox, go there, otherwise go to the landing page or a default
+    if (mail.activeInboxId) {
+      return navigateTo(`/inbox/${mail.activeInboxId}`);
+    }
     return navigateTo("/");
   }
 });

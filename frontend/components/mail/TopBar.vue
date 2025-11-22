@@ -29,7 +29,6 @@ const selectedInbox = computed({
       </div>
       <div>
         <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Free Mail</p>
-        <p class="text-lg font-semibold">Gmail-style Workspace</p>
       </div>
     </div>
 
@@ -42,18 +41,13 @@ const selectedInbox = computed({
     </div>
 
     <div class="flex items-center gap-3">
-      <div class="text-right">
-        <p class="text-xs text-slate-400">Active identity</p>
-        <select
-          v-model="selectedInbox"
-          :disabled="!emails.length"
-          class="mt-1 rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:border-brand-400 focus:outline-none disabled:opacity-50"
-        >
-          <option v-if="!emails.length" value="">No inboxes</option>
-          <option v-for="email in emails" :key="email.id" :value="email.inbox_id">
-            {{ email.email }}
-          </option>
-        </select>
+      <div class="hidden sm:block text-right">
+        <p class="mb-1 text-xs text-slate-400">Active identity</p>
+        <MailInboxSwitcher
+          :emails="emails"
+          :active-inbox-id="activeInboxId"
+          @select="(id) => emit('selectInbox', id)"
+        />
       </div>
 
       <button

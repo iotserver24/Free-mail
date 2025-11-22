@@ -86,7 +86,15 @@ function quoteBody(text: string) {
 }
 
 function buildReplyContext(entry: MessageRecord) {
-  const to = entry.sender_email ? [entry.sender_email] : [];
+  let to: string[] = [];
+  if (entry.direction === "outbound") {
+    // If replying to an outbound message, reply to the original recipients
+    to = entry.recipient_emails || [];
+  } else {
+    // If replying to an inbound message, reply to the sender
+    to = entry.sender_email ? [entry.sender_email] : [];
+  }
+
   const subject = entry.subject?.match(/^re:/i) ? entry.subject : `Re: ${entry.subject || ""}`;
   const quoted = quoteBody(getPlainBody(entry));
   const header = `On ${formatDateTime(entry.created_at)}, ${entry.sender_email || "Unknown"} wrote:\n`;
@@ -131,89 +139,148 @@ function handleForward() {
 </script>
 
 <template>
-  <section class="flex h-full flex-col bg-slate-950/20">
-    <div class="border-b border-white/5 px-8 py-4">
-      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Preview</p>
-      <h2 class="mt-1 text-2xl font-semibold text-white">
-        {{ message?.subject || "Select a message" }}
-      </h2>
-      <p v-if="message" class="text-sm text-slate-400">
-        {{ fromLabel }} · {{ formatDateTime(message.created_at) }}
-      </p>
-    </div>
-
-    <div v-if="!hasSelection" class="flex flex-1 items-center justify-center text-slate-500">
-      Choose a conversation to inspect its contents.
-    </div>
-
-    <div v-else class="flex-1 space-y-6 overflow-y-auto px-8 py-6">
-      <div class="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-4 md:flex md:items-center md:justify-between md:gap-10">
-        <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500">From</p>
-          <p class="text-base font-semibold text-slate-100">{{ fromLabel }}</p>
-          <p class="text-xs text-slate-500">{{ message && formatDateTime(message.created_at) }}</p>
+  <section class="flex h-full flex-col bg-gradient-to-br from-slate-950 via-slate-950/95 to-slate-900/80">
+    <!-- Header -->
+    <div class="border-b border-white/10 bg-slate-950/40 px-6 py-6 backdrop-blur-sm md:px-8">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1">
+          <p class="text-xs font-medium uppercase tracking-[0.25em] text-slate-500">Message</p>
+          <h2 class="mt-2 text-2xl font-bold leading-tight text-white md:text-3xl">
+            {{ message?.subject || "Select a message" }}
+          </h2>
+          <div v-if="message" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+            <span class="font-medium text-slate-300">{{ fromLabel }}</span>
+            <span class="text-slate-600">•</span>
+            <span>{{ formatDateTime(message.created_at) }}</span>
+          </div>
         </div>
-        <div class="mt-4 h-px w-full bg-slate-800/70 md:mt-0 md:h-16 md:w-px" />
-        <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500">To</p>
-          <p class="text-base text-slate-100">
-            {{ toLabel }}
-          </p>
+        
+        <!-- Action Buttons (Desktop) -->
+        <div v-if="hasSelection" class="hidden gap-2 md:flex">
+          <button
+            v-if="canReply"
+            class="group flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-2.5 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-brand-400/60 hover:bg-brand-500/10 hover:text-brand-300"
+            @click="handleReply"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+            Reply
+          </button>
+          <button
+            v-if="canForward"
+            class="group flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-2.5 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-purple-400/60 hover:bg-purple-500/10 hover:text-purple-300"
+            @click="handleForward"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+            </svg>
+            Forward
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-if="!hasSelection" class="flex flex-1 flex-col items-center justify-center gap-4 text-slate-500">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="h-16 w-16 text-slate-700">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+      </svg>
+      <p class="text-sm">Select a message to view its contents</p>
+    </div>
+
+    <!-- Message Content -->
+    <div v-else class="flex-1 space-y-6 overflow-y-auto px-6 py-6 md:px-8">
+      <!-- Metadata Card -->
+      <div class="overflow-hidden rounded-2xl border border-slate-800/70 bg-gradient-to-br from-slate-900/60 to-slate-900/40 backdrop-blur-sm">
+        <div class="grid gap-px bg-slate-800/30 md:grid-cols-2">
+          <div class="bg-slate-900/60 p-5">
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">From</p>
+            <p class="mt-2 text-base font-semibold text-slate-100">{{ fromLabel }}</p>
+            <p class="mt-1 text-xs text-slate-400">{{ message && formatDateTime(message.created_at) }}</p>
+          </div>
+          <div class="bg-slate-900/60 p-5">
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">To</p>
+            <p class="mt-2 text-base font-medium text-slate-100">{{ toLabel }}</p>
+          </div>
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-3">
+      <!-- Action Buttons (Mobile) -->
+      <div class="flex flex-wrap gap-3 md:hidden">
         <button
           v-if="canReply"
-          class="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-brand-400/60"
+          class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-brand-400/60 hover:bg-brand-500/10"
           @click="handleReply"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+          </svg>
           Reply
         </button>
         <button
           v-if="canForward"
-          class="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-brand-400/60"
+          class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-purple-400/60 hover:bg-purple-500/10"
           @click="handleForward"
         >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+          </svg>
           Forward
         </button>
       </div>
 
-      <div class="space-y-4">
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Thread</p>
-
-        <div v-if="!activeThreadMessages.length" class="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-6 text-sm text-slate-400">
-          No messages yet for this thread.
+      <!-- Thread Messages -->
+      <div class="space-y-5">
+        <div class="flex items-center gap-3">
+          <p class="text-xs font-medium uppercase tracking-[0.25em] text-slate-500">Conversation</p>
+          <div class="h-px flex-1 bg-gradient-to-r from-slate-800 to-transparent"></div>
         </div>
 
-        <div v-else class="flex flex-col gap-6">
+        <div v-if="!activeThreadMessages.length" class="rounded-2xl border border-slate-800/70 bg-slate-900/40 p-8 text-center text-sm text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="mx-auto mb-3 h-12 w-12 text-slate-700">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+          </svg>
+          No messages in this thread yet.
+        </div>
+
+        <div v-else class="space-y-6">
           <div
             v-for="entry in activeThreadMessages"
             :key="entry.id"
-            class="flex flex-col gap-2"
-            :class="entry.direction === 'outbound' ? 'items-end text-right' : 'items-start text-left'"
+            class="flex flex-col gap-3"
+            :class="entry.direction === 'outbound' ? 'items-end' : 'items-start'"
           >
-            <div class="text-xs text-slate-500">
+            <!-- Message Metadata -->
+            <div class="flex items-center gap-2 text-xs text-slate-500">
               <span class="font-semibold text-slate-300">{{ authorLabel(entry) }}</span>
-              <span v-if="recipientLabel(entry)" class="mx-1 text-slate-600">•</span>
+              <span v-if="recipientLabel(entry)" class="text-slate-600">•</span>
               <span class="text-slate-400">{{ recipientLabel(entry) }}</span>
-              <span class="mx-1 text-slate-600">•</span>
+              <span class="text-slate-600">•</span>
               <span>{{ formatDateTime(entry.created_at) }}</span>
             </div>
 
+            <!-- Message Bubble -->
             <div
-              class="w-full max-w-2xl space-y-4 rounded-2xl border p-5 text-sm leading-relaxed"
+              class="message-bubble w-full max-w-3xl space-y-5 rounded-2xl border p-6 shadow-lg backdrop-blur-sm transition-all hover:shadow-xl"
               :class="entry.direction === 'outbound'
-                ? 'border-brand-400/40 bg-brand-500/5 text-slate-100'
-                : 'border-slate-800/70 bg-slate-900/60 text-slate-200'"
+                ? 'border-brand-400/30 bg-gradient-to-br from-brand-500/10 to-brand-600/5 text-slate-100 shadow-brand-500/5'
+                : 'border-slate-800/70 bg-gradient-to-br from-slate-900/80 to-slate-900/60 text-slate-200 shadow-black/20'"
             >
-              <div v-if="entry.body_html" class="rich-text" v-html="entry.body_html" />
-              <pre v-else class="whitespace-pre-wrap text-sm text-inherit">
-{{ entry.body_plain || "No body provided." }}
-              </pre>
+              <!-- Message Body -->
+              <div v-if="entry.body_html" class="rich-text text-base leading-relaxed" v-html="entry.body_html" />
+              <pre v-else class="whitespace-pre-wrap font-sans text-base leading-relaxed text-inherit">{{ entry.body_plain || "No content provided." }}</pre>
 
-              <div v-if="entry.attachments?.length" class="space-y-3">
-                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Attachments</p>
+              <!-- Attachments -->
+              <div v-if="entry.attachments?.length" class="space-y-4 border-t border-white/5 pt-5">
+                <div class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-slate-400">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                  </svg>
+                  <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    {{ entry.attachments.length }} Attachment{{ entry.attachments.length > 1 ? 's' : '' }}
+                  </p>
+                </div>
                 <div class="attachment-grid">
                   <a
                     v-for="attachment in entry.attachments"
@@ -221,17 +288,26 @@ function handleForward() {
                     :href="attachment.url"
                     target="_blank"
                     rel="noreferrer"
-                    class="attachment-card attachment-generic"
+                    class="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-slate-900/60 p-4 backdrop-blur-sm transition-all hover:border-brand-400/50 hover:bg-slate-800/80 hover:shadow-lg hover:shadow-brand-500/10"
                   >
-                    <div>
-                      <p class="font-semibold">{{ attachment.filename }}</p>
-                      <p class="text-xs text-slate-400">
-                        {{ attachment.mimetype || "File" }}
-                      </p>
-                    </div>
-                    <div class="text-right">
-                      <p class="text-xs text-slate-400">{{ formatBytes(attachment.size_bytes) }}</p>
-                      <span class="text-xs text-brand-300">Open</span>
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="flex-1 overflow-hidden">
+                        <p class="truncate font-semibold text-slate-200 group-hover:text-brand-300">
+                          {{ attachment.filename }}
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500">
+                          {{ attachment.mimetype || "Unknown type" }}
+                        </p>
+                      </div>
+                      <div class="flex flex-col items-end gap-1">
+                        <p class="text-xs font-medium text-slate-400">{{ formatBytes(attachment.size_bytes) }}</p>
+                        <span class="flex items-center gap-1 text-xs font-semibold text-brand-400 transition-transform group-hover:translate-x-0.5">
+                          Open
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                        </span>
+                      </div>
                     </div>
                   </a>
                 </div>
@@ -246,49 +322,45 @@ function handleForward() {
 
 <style scoped>
 .rich-text :deep(p) {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  line-height: 1.7;
 }
 
 .rich-text :deep(a) {
   color: rgb(96 165 250);
   text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.rich-text :deep(a:hover) {
+  color: rgb(147 197 253);
 }
 
 .attachment-grid {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
-.attachment-card {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 1rem;
-  background-color: rgba(15, 23, 42, 0.6);
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+@media (max-width: 640px) {
+  .attachment-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.attachment-card:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  transform: translateY(-2px);
+.message-bubble {
+  animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.attachment-generic {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.attachment-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: rgb(148 163 184);
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>
 
