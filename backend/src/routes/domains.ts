@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import * as domainsRepo from "../repositories/domains";
 
-export const domainsRouter = Router();
+export const domainsRouter: Router = Router();
 
 domainsRouter.use(requireAuth);
 

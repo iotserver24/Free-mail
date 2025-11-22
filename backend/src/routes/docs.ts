@@ -4,7 +4,7 @@ import type { JsonObject } from "swagger-ui-express";
 import path from "path";
 import fs from "fs";
 
-const docsRouter = Router();
+const docsRouter: Router = Router();
 
 const swaggerPath = path.resolve(__dirname, "..", "..", "swagger.json");
 

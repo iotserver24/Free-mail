@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Express } from "express";
 import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
@@ -16,7 +16,7 @@ import { docsRouter } from "./routes/docs";
 import { uploadsRouter } from "./routes/uploads";
 import aiRouter from "./routes/ai.routes";
 
-const app = express();
+const app: Express = express();
 
 // Required so Express marks cookies as secure when behind a proxy (Vercel, Render, etc.)
 const trustProxyHops = parseInt(process.env.TRUST_PROXY_HOPS ?? "1", 10);

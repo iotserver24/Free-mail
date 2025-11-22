@@ -6,7 +6,7 @@ import { uploadBufferToCatbox } from "../services/catbox";
 import { getUserByEmail } from "../repositories/users";
 import { getEmailByAddress } from "../repositories/emails";
 
-export const webhooksRouter = Router();
+export const webhooksRouter: Router = Router();
 
 webhooksRouter.post("/cloudflare", async (req, res, next) => {
   try {

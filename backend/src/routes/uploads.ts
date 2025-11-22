@@ -10,7 +10,7 @@ const upload = multer({
   },
 });
 
-export const uploadsRouter = Router();
+export const uploadsRouter: Router = Router();
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;

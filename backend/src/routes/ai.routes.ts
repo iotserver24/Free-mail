@@ -1,7 +1,7 @@
-import express from "express";
+import express, { Router } from "express";
 import { aiService } from "../services/ai.service";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 /**
  * Check if AI service is available

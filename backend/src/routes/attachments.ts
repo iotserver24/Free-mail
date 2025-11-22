@@ -5,7 +5,7 @@ import { uploadBufferToCatbox } from "../services/catbox";
 import { addAttachment } from "../repositories/messages";
 
 const upload = multer();
-export const attachmentsRouter = Router();
+export const attachmentsRouter: Router = Router();
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;

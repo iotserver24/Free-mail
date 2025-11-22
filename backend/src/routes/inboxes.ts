@@ -3,7 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import * as inboxesRepo from "../repositories/inboxes";
 import * as emailsRepo from "../repositories/emails";
 
-export const inboxesRouter = Router();
+export const inboxesRouter: Router = Router();
 
 inboxesRouter.use(requireAuth);
 

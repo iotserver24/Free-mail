@@ -2,7 +2,7 @@ import { Router } from "express";
 import { config } from "../config";
 import { getUserByEmail, createUser } from "../repositories/users";
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 
 authRouter.post("/login", async (req, res, next) => {
   try {
