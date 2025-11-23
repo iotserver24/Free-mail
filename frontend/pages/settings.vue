@@ -59,10 +59,6 @@ async function handleEmailCreate() {
   }
 }
 
-function goHome() {
-  router.push("/");
-}
-
 async function handleLogout() {
   await auth.logout();
   await router.push("/login");
@@ -70,27 +66,14 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col">
-    <MailTopBar
-      :emails="mail.emails"
-      :active-inbox-id="mail.activeInboxId"
-      :user-email="auth.currentEmail"
-      @select-inbox="mail.setActiveInbox"
-      @compose="mail.toggleComposer(true)"
-      @settings="() => {}"
-      @logout="handleLogout"
-    />
-
-    <main class="flex-1 bg-slate-950/60 p-8">
-      <div class="mb-6 flex items-center justify-between">
+  <div class="flex h-full flex-col overflow-y-auto bg-slate-950/60">
+    <main class="flex-1 p-4 md:p-8">
+      <div class="mb-6">
         <div>
           <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Control center</p>
           <h1 class="text-3xl font-semibold">Settings</h1>
           <p class="text-sm text-slate-400">Connect domains, mint inboxes, and manage delivery.</p>
         </div>
-        <button class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200" @click="goHome">
-          Back to inbox
-        </button>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
@@ -202,14 +185,6 @@ async function handleLogout() {
         </section>
       </div>
     </main>
-
-    <MailComposerDrawer
-      :open="mail.composerOpen"
-      :emails="mail.emails"
-      :active-inbox-id="mail.activeInboxId"
-      :submit="mail.sendMessage"
-      @close="mail.toggleComposer(false)"
-    />
   </div>
 </template>
 
