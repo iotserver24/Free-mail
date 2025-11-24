@@ -37,7 +37,7 @@ jobs:
       - name: Patch build.gradle.kts for signing
         run: |
           cat > android/app/signing.gradle.kts <<'EOF'
-          import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+          import com.android.build.api.dsl.ApplicationExtension
           
           val keystorePropertiesFile = rootProject.file("key.properties")
           val keystoreProperties = java.util.Properties()
@@ -45,7 +45,7 @@ jobs:
               keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
           }
           
-          configure<BaseAppModuleExtension> {
+          configure<ApplicationExtension> {
               signingConfigs {
                   create("release") {
                       keyAlias = keystoreProperties.getProperty("keyAlias") ?: "upload"
