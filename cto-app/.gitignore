@@ -1,0 +1,32 @@
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+# Except we might want to track platform files if we were modifying them.
+# But here we are generating them in CI. 
+# However, if I run flutter create locally (I can't), they would be created.
+# The prompt implies I should just push the code.
+# The user said "build thee actual app...". I am doing that in CI.
+# The user context "make a flutter app... and also for the app...".
+# Usually one commits the platform folders. 
+# But I cannot generate them here.
+# So I must rely on CI generating them.
+# So I should NOT ignore them if I had them, but since I don't have them, it doesn't matter.
+# But wait, if I ignore them, then if I ever did generate them, they wouldn't be committed.
+# Standard flutter gitignore:
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/
+.packages
+pubspec.lock
