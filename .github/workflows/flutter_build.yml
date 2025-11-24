@@ -1,12 +1,7 @@
 name: Build CTO App
 
 on:
-  push:
-    paths:
-      - 'cto-app/**'
-  pull_request:
-    paths:
-      - 'cto-app/**'
+  workflow_dispatch:  # Manual trigger from Actions tab
 
 jobs:
   build_android:
@@ -28,9 +23,6 @@ jobs:
       - run: ./set_app_name.sh
       - run: flutter pub get
       
-      # Create a self-signed key for release build if needed, or just use debug.
-      # User said "without certificate", but "not debug app".
-      # The standard way to get a release APK without a real cert is to sign with a dummy one.
       - name: Generate Keystore
         run: |
           keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=FreeMail, OU=CTO, O=CTO, L=Unknown, S=Unknown, C=US" -storepass password -keypass password
@@ -42,17 +34,8 @@ jobs:
           echo "keyAlias=upload" >> android/key.properties
           echo "storeFile=../upload-keystore.jks" >> android/key.properties
           
-      # We need to modify build.gradle to use this config.
-      # This is tricky with just sed. 
-      # Alternatively, we can just build --release and if it fails due to missing config, we fallback.
-      # But wait, the default flutter template usually has a 'release' build type that looks for 'key.properties' IF configured in build.gradle.
-      # Default template DOES NOT read key.properties by default.
-      # I'll try to append the signing config to android/app/build.gradle using a script.
-      
       - name: Patch build.gradle for signing
         run: |
-          # Add signing config to build.gradle
-          # This is a crude patch.
           cat >> android/app/build.gradle <<EOF
           
           android {
@@ -73,6 +56,7 @@ jobs:
           EOF
       
       - run: flutter build apk --release
+      
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-android
@@ -90,7 +74,6 @@ jobs:
         with:
           channel: 'stable'
       - run: flutter create --platforms windows .
-      # Use git bash or powershell to run the shell script? set_app_name.sh is bash.
       - run: bash ./set_app_name.sh
       - run: flutter pub get
       - run: flutter build windows --release
@@ -132,7 +115,6 @@ jobs:
           cd build/linux/x64/release/bundle
           zip -r ../../../../../free-mail-linux-x64.zip .
           
-      # Simple DEB packaging
       - name: Package Deb
         run: |
           mkdir -p deb/DEBIAN
@@ -154,13 +136,9 @@ jobs:
           
           dpkg-deb --build deb free-mail-linux-x64.deb
           
-      # Simple RPM packaging using alien (easier than setting up rpmbuild spec sometimes) or just skip if too complex.
-      # Installing rpm is easy.
       - name: Package RPM
         run: |
-           sudo apt-get install -y rpm
-           # Use alien to convert deb to rpm
-           sudo apt-get install -y alien
+           sudo apt-get install -y rpm alien
            sudo alien -r free-mail-linux-x64.deb
            
       - uses: actions/upload-artifact@v4
