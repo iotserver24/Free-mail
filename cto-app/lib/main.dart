@@ -26,11 +26,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CTO Email App',
+      title: 'Free Mail',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple, 
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
+        brightness: Brightness.dark,
       ),
+      themeMode: ThemeMode.dark,
       home: Consumer<ApiClient>(
         builder: (context, apiClient, child) {
            // Simple logic: if not logged in (or no base URL), show login.
