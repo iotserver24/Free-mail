@@ -20,10 +20,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
       
-      - name: Remove existing android folder
-        run: rm -rf android
-        
-      - run: flutter create --platforms android .
       - run: ./set_app_name.sh
       - run: flutter pub get
       
@@ -38,26 +34,35 @@ jobs:
           echo "keyAlias=upload" >> android/key.properties
           echo "storeFile=../upload-keystore.jks" >> android/key.properties
           
-      - name: Patch build.gradle for signing
+      - name: Patch build.gradle.kts for signing
         run: |
-          cat >> android/app/build.gradle <<EOF
+          cat > android/app/signing.gradle.kts <<'EOF'
+          val keystorePropertiesFile = rootProject.file("key.properties")
+          val keystoreProperties = java.util.Properties()
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+          }
           
           android {
               signingConfigs {
-                  release {
-                      keyAlias 'upload'
-                      keyPassword 'password'
-                      storeFile file('../upload-keystore.jks')
-                      storePassword 'password'
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = file(keystoreProperties["storeFile"] as String)
+                      storePassword = keystoreProperties["storePassword"] as String
                   }
               }
               buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
                   }
               }
           }
           EOF
+          
+          # Add apply to the build.gradle.kts
+          echo "" >> android/app/build.gradle.kts
+          echo "apply(from = \"signing.gradle.kts\")" >> android/app/build.gradle.kts
       
       - run: flutter build apk --release
       
@@ -78,11 +83,6 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Remove existing windows folder
-        run: Remove-Item -Path windows -Recurse -Force -ErrorAction SilentlyContinue
-        shell: pwsh
-        
-      - run: flutter create --platforms windows .
       - run: bash ./set_app_name.sh
       - run: flutter pub get
       - run: flutter build windows --release
@@ -118,10 +118,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
       
-      - name: Remove existing linux folder
-        run: rm -rf linux
-        
-      - run: flutter create --platforms linux .
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter build linux --release
@@ -177,10 +173,6 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Remove existing ios folder
-        run: rm -rf ios
-        
-      - run: flutter create --platforms ios .
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign
@@ -201,10 +193,6 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Remove existing macos folder
-        run: rm -rf macos
-        
-      - run: flutter create --platforms macos .
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter config --enable-macos-desktop
@@ -232,10 +220,6 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Remove existing macos folder
-        run: rm -rf macos
-        
-      - run: flutter create --platforms macos .
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter config --enable-macos-desktop
