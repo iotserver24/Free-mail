@@ -26,14 +26,15 @@ jobs:
       
       - name: Generate Keystore
         run: |
-          keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=FreeMail, OU=CTO, O=CTO, L=Unknown, S=Unknown, C=US" -storepass password -keypass password
+          mkdir -p android/app
+          keytool -genkey -v -keystore android/app/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=FreeMail, OU=CTO, O=CTO, L=Unknown, S=Unknown, C=US" -storepass password -keypass password
           
       - name: Configure Signing
         run: |
           echo "storePassword=password" > android/key.properties
           echo "keyPassword=password" >> android/key.properties
           echo "keyAlias=upload" >> android/key.properties
-          echo "storeFile=../upload-keystore.jks" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
           
       - name: Patch build.gradle.kts for signing
         run: |
@@ -51,7 +52,7 @@ jobs:
                   create("release") {
                       keyAlias = keystoreProperties.getProperty("keyAlias") ?: "upload"
                       keyPassword = keystoreProperties.getProperty("keyPassword") ?: "password"
-                      storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) } ?: file("../upload-keystore.jks")
+                      storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) } ?: file("upload-keystore.jks")
                       storePassword = keystoreProperties.getProperty("storePassword") ?: "password"
                   }
               }
