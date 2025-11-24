@@ -1,11 +1,28 @@
 import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { config } from "../config";
-import { createUser, getUserByEmail, getUserByInviteToken, updateUser } from "../repositories/users";
+import { createUser, getUserByEmail, getUserByInviteToken, updateUser, listUsers, getUserById } from "../repositories/users";
+import { createInbox } from "../repositories/inboxes";
+import { createEmail } from "../repositories/emails";
+import { getDomainById } from "../repositories/domains";
 import { sendBrevoMail } from "../services/mailer";
 import { requireAuth } from "../middleware/auth";
 
 export const usersRouter: Router = Router();
+
+// List all users (Admin only)
+usersRouter.get("/", requireAuth, async (req, res, next) => {
+    try {
+        const user = (req as any).user;
+        if (user.role !== "admin") {
+            return res.status(403).json({ error: "forbidden: admin only" });
+        }
+        const users = await listUsers();
+        return res.json(users);
+    } catch (error) {
+        next(error);
+    }
+});
 
 // Create new user (Admin only)
 usersRouter.post("/", requireAuth, async (req, res, next) => {
@@ -17,17 +34,26 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
 
         const {
             username,
-            email, // Full email with domain
-            permanent_domain,
-            details, // Not stored in DB currently, maybe add to display_name or new field?
+            domain_id, // ID of the selected domain
+            fullname,
+            details,
             password,
             send_invite,
             personal_email,
+            avatar_url,
         } = req.body;
 
-        if (!username || !email || !permanent_domain) {
-            return res.status(400).json({ error: "missing required fields" });
+        if (!username || !domain_id) {
+            return res.status(400).json({ error: "username and domain are required" });
         }
+
+        // 1. Fetch domain to construct email
+        const domainRecord = await getDomainById(req.userId!, domain_id);
+        if (!domainRecord) {
+            return res.status(400).json({ error: "invalid domain" });
+        }
+
+        const email = `${username}@${domainRecord.domain}`;
 
         const existingUser = await getUserByEmail(email);
         if (existingUser) {
@@ -45,24 +71,45 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
             inviteTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
         }
 
+        // 2. Create User
         const newUser = await createUser({
             username,
             email,
             password: password || undefined,
-            displayName: details,
+            displayName: fullname || details,
             personalEmail: personal_email,
-            permanentDomain: permanent_domain,
+            permanentDomain: domainRecord.domain,
             ...(inviteToken ? { inviteToken } : {}),
             ...(inviteTokenExpires ? { inviteTokenExpires } : {}),
+            avatarUrl: avatar_url,
             role: "user",
         });
 
+        // 3. Auto-create Inbox and Email record
+        try {
+            const inboxId = uuid();
+
+            const emailRecord = await createEmail({
+                email: newUser.email,
+                domain: domainRecord.domain,
+                userId: newUser.id,
+                inboxId: inboxId,
+            });
+
+            await createInbox({
+                id: inboxId,
+                userId: newUser.id,
+                name: "Main Inbox",
+                emailId: emailRecord.id,
+            });
+        } catch (err) {
+            console.error("Failed to auto-create inbox/email:", err);
+            // Don't fail the request, but log it. Admin might need to fix manually.
+        }
+
         if (send_invite && inviteToken) {
             const inviteUrl = `${config.frontendUrl}/set-password?token=${inviteToken}`;
-
-            // Extract domain from the new user's email
-            const emailDomain = email.split('@')[1];
-            const senderEmail = `noreply@${emailDomain}`;
+            const senderEmail = `noreply@${domainRecord.domain}`;
 
             try {
                 await sendBrevoMail({
@@ -73,6 +120,7 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>Welcome to Free-mail!</h2>
               <p>An account has been created for you.</p>
+              <p><strong>Name:</strong> ${fullname}</p>
               <p><strong>Username:</strong> ${username}</p>
               <p><strong>Email:</strong> ${email}</p>
               <p>Please click the link below to set your password and access your account:</p>
@@ -89,11 +137,43 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
                 });
             } catch (emailError) {
                 console.error("Failed to send invite email:", emailError);
-                // Don't fail the request, but warn
             }
         }
 
         return res.status(201).json({ user: newUser });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Update user (Admin or Self)
+usersRouter.patch("/:id", requireAuth, async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        const currentUser = (req as any).user;
+
+        if (!id) {
+            return res.status(400).json({ error: "user id required" });
+        }
+
+        // Only admin or the user themselves can update
+        if (currentUser.role !== "admin" && currentUser.id !== id) {
+            return res.status(403).json({ error: "forbidden" });
+        }
+
+        // Prevent non-admins from changing role or sensitive fields if needed
+        if (currentUser.role !== "admin") {
+            delete updates.role;
+            delete updates.email; // Usually email shouldn't be changed easily
+        }
+
+        const updatedUser = await updateUser(id, updates);
+        if (!updatedUser) {
+            return res.status(404).json({ error: "user not found" });
+        }
+
+        return res.json({ user: updatedUser });
     } catch (error) {
         next(error);
     }

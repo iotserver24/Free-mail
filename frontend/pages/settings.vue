@@ -1,7 +1,16 @@
 <script setup lang="ts">
+import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '~/stores/auth';
+import { useMailStore } from '~/stores/mail';
+import { useApi } from '~/composables/useApi';
+import { useToasts } from '~/composables/useToasts';
+
 const router = useRouter();
 const auth = useAuthStore();
 const mail = useMailStore();
+const api = useApi();
+const toasts = useToasts();
 
 onMounted(async () => {
   await mail.bootstrap();
@@ -9,6 +18,7 @@ onMounted(async () => {
 
 const domainInput = ref("");
 const domainLoading = ref(false);
+const avatarUploading = ref(false);
 
 const emailForm = reactive({
   localPart: "",
@@ -38,6 +48,9 @@ async function handleDomainCreate() {
   try {
     await mail.createDomain(domainInput.value);
     domainInput.value = "";
+    toasts.push({ title: 'Success', message: 'Domain added', variant: 'success' });
+  } catch (e) {
+    toasts.push({ title: 'Error', message: 'Failed to add domain', variant: 'error' });
   } finally {
     domainLoading.value = false;
   }
@@ -54,8 +67,50 @@ async function handleEmailCreate() {
     });
     emailForm.localPart = "";
     emailForm.inboxName = "";
+    toasts.push({ title: 'Success', message: 'Email identity created', variant: 'success' });
+  } catch (e) {
+    toasts.push({ title: 'Error', message: 'Failed to create email', variant: 'error' });
   } finally {
     emailLoading.value = false;
+  }
+}
+
+async function handleAvatarUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files?.length) return;
+
+  const file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) {
+    toasts.push({ title: 'Error', message: 'File size must be under 5MB', variant: 'error' });
+    return;
+  }
+
+  avatarUploading.value = true;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    // Upload to Catbox
+    const res = await api<{ url: string }>('/api/uploads/catbox', {
+      method: 'POST',
+      body: formData,
+    });
+
+    // Update User Profile
+    if (auth.user?.id) {
+      await api(`/api/users/${auth.user.id}`, {
+        method: 'PATCH',
+        body: { avatar_url: res.url },
+      });
+      
+      // Update local state
+      auth.user.avatarUrl = res.url;
+      toasts.push({ title: 'Success', message: 'Avatar updated', variant: 'success' });
+    }
+  } catch (error: any) {
+    toasts.push({ title: 'Error', message: 'Upload failed', variant: 'error' });
+  } finally {
+    avatarUploading.value = false;
   }
 }
 
@@ -77,6 +132,44 @@ async function handleLogout() {
       </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
+        <!-- Profile Section -->
+        <section class="glass-panel rounded-3xl p-6 lg:col-span-2">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Profile</p>
+              <h2 class="text-xl font-semibold">Your Identity</h2>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-6">
+            <div class="relative group">
+              <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-slate-700 bg-slate-900">
+                <img
+                  :src="auth.user?.avatarUrl || 'https://via.placeholder.com/150'"
+                  alt="Avatar"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <label class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
+                <span class="text-xs text-white font-medium">Change</span>
+                <input type="file" class="hidden" accept="image/*" @change="handleAvatarUpload" :disabled="avatarUploading" />
+              </label>
+              <div v-if="avatarUploading" class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-full">
+                <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="text-lg font-medium text-white">{{ auth.user?.displayName || auth.user?.email }}</h3>
+              <p class="text-sm text-slate-400">{{ auth.user?.email }}</p>
+              <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">{{ auth.user?.role }}</p>
+            </div>
+          </div>
+        </section>
+
         <section class="glass-panel rounded-3xl p-6">
           <div class="flex items-center justify-between">
             <div>
@@ -180,11 +273,10 @@ async function handleLogout() {
               <p class="font-semibold">{{ email.email }}</p>
               <p class="text-xs text-slate-500">Inbox: {{ email.inbox_id }}</p>
             </div>
-            <p v-if="!mail.emails.length" class="text-slate-500">No email identities yet.</p>
+            <p v-if="!mail.emails.length" class="text-slate-500">No email identities yet. Create a domain first.</p>
           </div>
         </section>
       </div>
     </main>
   </div>
 </template>
-

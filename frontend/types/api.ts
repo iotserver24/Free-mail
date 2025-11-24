@@ -3,6 +3,7 @@ export interface ApiUser {
   email: string;
   displayName: string;
   role: "admin" | "user";
+  avatarUrl?: string;
 }
 
 export interface DomainRecord {

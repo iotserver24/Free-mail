@@ -10,6 +10,7 @@ export interface InboxRecord {
 }
 
 export interface CreateInboxInput {
+  id?: string;
   emailId: string;
   userId: string;
   name: string;
@@ -20,7 +21,7 @@ export async function createInbox(input: CreateInboxInput): Promise<InboxRecord>
   const collection = db.collection("inboxes");
 
   const inbox = {
-    id: uuid(),
+    id: input.id || uuid(),
     email_id: input.emailId,
     user_id: input.userId,
     name: input.name.trim(),

@@ -13,6 +13,7 @@ export interface CreateUserInput {
   role?: "admin" | "user";
   inviteToken?: string;
   inviteTokenExpires?: string;
+  avatarUrl?: string;
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserRecord> {
@@ -31,6 +32,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRecord> {
     role: input.role ?? "user",
     invite_token: input.inviteToken ?? null,
     invite_token_expires: input.inviteTokenExpires ?? null,
+    avatar_url: input.avatarUrl ?? null,
     created_at: new Date().toISOString(),
   };
 
@@ -46,6 +48,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRecord> {
     role: user.role as "admin" | "user",
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
+    avatar_url: user.avatar_url,
     created_at: user.created_at,
   };
 }
@@ -80,6 +83,7 @@ export async function updateUser(id: string, updates: Partial<UserRecord> & { pa
     role: result.role,
     invite_token: result.invite_token,
     invite_token_expires: result.invite_token_expires,
+    avatar_url: result.avatar_url || null,
     created_at: result.created_at,
   };
 }
@@ -99,6 +103,7 @@ export async function getUserByEmail(email: string): Promise<(UserRecord & { pas
     role: "admin" | "user";
     invite_token: string | null;
     invite_token_expires: string | null;
+    avatar_url: string | null;
     created_at: string;
   }>({ email });
 
@@ -117,6 +122,7 @@ export async function getUserByEmail(email: string): Promise<(UserRecord & { pas
     role: user.role,
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
+    avatar_url: user.avatar_url,
     created_at: user.created_at,
   };
 }
@@ -135,6 +141,7 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
     role: "admin" | "user";
     invite_token: string | null;
     invite_token_expires: string | null;
+    avatar_url: string | null;
     created_at: string;
   }>({ id });
 
@@ -152,6 +159,7 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
     role: user.role,
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
+    avatar_url: user.avatar_url,
     created_at: user.created_at,
   };
 }
@@ -170,6 +178,7 @@ export async function getUserByInviteToken(token: string): Promise<UserRecord | 
     role: "admin" | "user";
     invite_token: string | null;
     invite_token_expires: string | null;
+    avatar_url: string | null;
     created_at: string;
   }>({ invite_token: token });
 
@@ -187,8 +196,42 @@ export async function getUserByInviteToken(token: string): Promise<UserRecord | 
     role: user.role,
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
+    avatar_url: user.avatar_url,
     created_at: user.created_at,
   };
+}
+
+export async function listUsers(): Promise<UserRecord[]> {
+  const db = await getDb();
+  const collection = db.collection("users");
+
+  const users = await collection.find<{
+    id: string;
+    email: string;
+    username: string;
+    display_name: string | null;
+    personal_email: string | null;
+    permanent_domain: string | null;
+    role: "admin" | "user";
+    invite_token: string | null;
+    invite_token_expires: string | null;
+    avatar_url: string | null;
+    created_at: string;
+  }>({}).toArray();
+
+  return users.map(user => ({
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    display_name: user.display_name,
+    personal_email: user.personal_email,
+    permanent_domain: user.permanent_domain,
+    role: user.role,
+    invite_token: user.invite_token,
+    invite_token_expires: user.invite_token_expires,
+    avatar_url: user.avatar_url,
+    created_at: user.created_at,
+  }));
 }
 
 export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {

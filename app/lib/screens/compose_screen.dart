@@ -1,8 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
 import '../models/compose_context.dart';
+import '../services/catbox_uploader.dart';
 
 class ComposeScreen extends StatefulWidget {
   final ComposeContext? context;
@@ -21,8 +23,16 @@ class _ComposeScreenState extends State<ComposeScreen> {
   final _bccController = TextEditingController();
   String? _fromAddress;
   String? _threadId;
+  final List<ComposeAttachment> _attachments = [];
+  final CatboxUploader _catboxUploader = CatboxUploader();
   bool _isLoading = false;
   bool _hasQuotedContext = false;
+  bool _uploadingAttachments = false;
+  String? _uploadError;
+
+  static const int _maxFileSizeBytes = 20 * 1024 * 1024;
+  String? _currentUploadName;
+  double? _currentUploadProgress;
 
   @override
   void didChangeDependencies() {
@@ -99,6 +109,13 @@ class _ComposeScreenState extends State<ComposeScreen> {
       return;
     }
 
+    if (_uploadingAttachments) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait for uploads to finish')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     final success = await client.sendMessage(
       from: _fromAddress!,
@@ -108,6 +125,14 @@ class _ComposeScreenState extends State<ComposeScreen> {
       subject: _subjectController.text.trim(),
       body: _bodyController.text,
       threadId: _threadId,
+      attachments: _attachments
+          .map((att) => {
+                'filename': att.filename,
+                'url': att.url,
+                if (att.mimeType != null) 'contentType': att.mimeType,
+                if (att.sizeBytes != null) 'size': att.sizeBytes,
+              })
+          .toList(),
     );
     if (!mounted) return;
 
@@ -120,6 +145,85 @@ class _ComposeScreenState extends State<ComposeScreen> {
         const SnackBar(content: Text('Failed to send message')),
       );
     }
+  }
+
+  Future<void> _pickAttachments() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withData: false,
+    );
+    if (result == null) return;
+
+    setState(() {
+      _uploadingAttachments = true;
+      _uploadError = null;
+    });
+
+    for (final file in result.files) {
+      final path = file.path;
+      if (path == null) {
+        setState(() {
+          _uploadError = 'Cannot read ${file.name} on this platform.';
+        });
+        continue;
+      }
+      if (file.size > _maxFileSizeBytes) {
+        setState(() {
+          _uploadError =
+              'File ${file.name} exceeds ${(_maxFileSizeBytes / (1024 * 1024)).toStringAsFixed(0)}MB limit.';
+        });
+        continue;
+      }
+      try {
+        setState(() {
+          _currentUploadName = file.name;
+          _currentUploadProgress = 0;
+        });
+        final url =
+            await _catboxUploader.uploadFile(
+          path,
+          filename: file.name,
+          onProgress: (sent, total) {
+            if (!mounted) return;
+            setState(() {
+              _currentUploadProgress =
+                  total == 0 ? null : sent / total.toDouble();
+            });
+          },
+        );
+        if (!mounted) return;
+        setState(() {
+          _attachments.add(
+            ComposeAttachment(
+              filename: file.name,
+              url: url,
+              sizeBytes: file.size,
+              mimeType: _guessMimeType(file),
+            ),
+          );
+          _currentUploadProgress = 1;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _uploadError = 'Failed to upload ${file.name}';
+        });
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _uploadingAttachments = false;
+        _currentUploadName = null;
+        _currentUploadProgress = null;
+      });
+    }
+  }
+
+  void _removeAttachment(ComposeAttachment attachment) {
+    setState(() {
+      _attachments.remove(attachment);
+    });
   }
 
   List<String> _parseRecipients(String raw) {
@@ -298,8 +402,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
             DropdownButtonFormField<String>(
               initialValue: _fromAddress,
@@ -349,22 +452,231 @@ class _ComposeScreenState extends State<ComposeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: TextField(
-                controller: _bodyController,
-                decoration: const InputDecoration(
-                  hintText: 'Compose email',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
+            TextField(
+              controller: _bodyController,
+              decoration: const InputDecoration(
+                hintText: 'Compose email',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
               ),
+              keyboardType: TextInputType.multiline,
+              maxLines: null,
+              minLines: 10,
+            ),
+            const SizedBox(height: 16),
+            _AttachmentEditor(
+              attachments: _attachments,
+              uploading: _uploadingAttachments,
+              uploadError: _uploadError,
+              currentUploadName: _currentUploadName,
+              uploadProgress: _currentUploadProgress,
+              onAdd: _pickAttachments,
+              onRemove: _removeAttachment,
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _AttachmentEditor extends StatelessWidget {
+  const _AttachmentEditor({
+    required this.attachments,
+    required this.uploading,
+    required this.uploadError,
+    required this.currentUploadName,
+    required this.uploadProgress,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<ComposeAttachment> attachments;
+  final bool uploading;
+  final String? uploadError;
+  final String? currentUploadName;
+  final double? uploadProgress;
+  final VoidCallback onAdd;
+  final void Function(ComposeAttachment attachment) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: uploading ? null : onAdd,
+              icon: const Icon(Icons.attach_file),
+              label: Text(
+                uploading
+                    ? 'Uploading ${currentUploadName ?? ''}...'
+                    : 'Add attachment',
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            'Each file must be under 20MB. Files upload via Catbox.',
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        if (uploading)
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colors.outlineVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  currentUploadName ?? 'Uploading…',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: uploadProgress),
+              ],
+            ),
+          ),
+        if (uploadError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              uploadError!,
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        if (attachments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: attachments
+                .map(
+                  (attachment) => _AttachmentCard(
+                    attachment: attachment,
+                    onRemove: () => onRemove(attachment),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AttachmentCard extends StatelessWidget {
+  const _AttachmentCard({
+    required this.attachment,
+    required this.onRemove,
+  });
+
+  final ComposeAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              visualDensity: VisualDensity.compact,
+              onPressed: onRemove,
+              tooltip: 'Remove',
+            ),
+          ),
+          Icon(
+            Icons.insert_drive_file_outlined,
+            color: colors.primary,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            attachment.filename,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          if (attachment.sizeBytes != null)
+            Text(
+              _formatSize(attachment.sizeBytes!),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+    final mb = kb / 1024;
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+}
+
+class ComposeAttachment {
+  final String filename;
+  final String url;
+  final int? sizeBytes;
+  final String? mimeType;
+
+  ComposeAttachment({
+    required this.filename,
+    required this.url,
+    this.sizeBytes,
+    this.mimeType,
+  });
+}
+
+String? _guessMimeType(PlatformFile file) {
+  final ext = file.extension?.toLowerCase();
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'pdf':
+      return 'application/pdf';
+    case 'txt':
+      return 'text/plain';
+    case 'md':
+      return 'text/markdown';
+    case 'json':
+      return 'application/json';
+    default:
+      return null;
   }
 }

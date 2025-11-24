@@ -40,7 +40,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             await client.fetchThread(widget.message['thread_id'] as String);
         if (!mounted) return;
         setState(() {
-          _threadMessages = records;
+          _threadMessages =
+              records.isNotEmpty ? records : [widget.message];
         });
       } else {
         final detail =

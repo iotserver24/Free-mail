@@ -100,9 +100,16 @@ const selectedInbox = computed({
         class="hidden items-center gap-2 rounded-xl border border-slate-800/80 bg-slate-900/40 px-3 py-2.5 text-sm text-slate-400 transition-all hover:border-rose-500/40 hover:bg-rose-500/5 hover:text-rose-300 md:flex"
         @click="emit('logout')"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+        <img
+          v-if="authStore.user?.avatarUrl"
+          :src="authStore.user.avatarUrl"
+          alt="Avatar"
+          class="h-5 w-5 rounded-full object-cover"
+        />
+        <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
         </svg>
+        <span class="hidden lg:inline">Logout</span>
       </button>
 
       <!-- Mobile Menu Button -->

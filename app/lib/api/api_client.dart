@@ -298,6 +298,7 @@ class ApiClient extends ChangeNotifier {
     List<String>? cc,
     List<String>? bcc,
     String? threadId,
+    List<Map<String, dynamic>>? attachments,
   }) async {
     if (_dio == null) return false;
     try {
@@ -310,6 +311,8 @@ class ApiClient extends ChangeNotifier {
         "subject": subject,
         "text": body,
         "html": "<p>${body.replaceAll("\n", "<br />")}</p>",
+        if (attachments != null && attachments.isNotEmpty)
+          "attachments": attachments,
       });
       final success = response.statusCode == 200 ||
           response.statusCode == 201 ||
