@@ -129,14 +129,13 @@ class EmailListItem extends StatelessWidget {
             ),
             
             // Star icon
+            // Note: Star toggle functionality to be implemented with backend API support
             IconButton(
               icon: Icon(
                 email.isStarred ? Icons.star : Icons.star_border,
                 color: email.isStarred ? Colors.amber : null,
               ),
-              onPressed: () {
-                // TODO: Toggle star
-              },
+              onPressed: null, // Disabled until backend API is implemented
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),

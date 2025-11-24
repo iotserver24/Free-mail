@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/email_service.dart';
@@ -23,6 +24,13 @@ class _ComposeDialogState extends State<ComposeDialog> {
   bool _isLoading = false;
   bool _showCc = false;
   bool _showBcc = false;
+  String? _fromEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFromEmail();
+  }
 
   @override
   void dispose() {
@@ -32,6 +40,32 @@ class _ComposeDialogState extends State<ComposeDialog> {
     _subjectController.dispose();
     _bodyController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFromEmail() async {
+    try {
+      final authService = context.read<AuthService>();
+      final backendUrl = await authService.getBackendUrl();
+      
+      if (backendUrl != null) {
+        final emailService = EmailService(backendUrl);
+        final emailAddresses = await emailService.fetchEmailAddresses();
+        
+        if (mounted && emailAddresses.isNotEmpty) {
+          setState(() {
+            _fromEmail = emailAddresses.first;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading from email: $e');
+      // Fallback to a default if email addresses can't be fetched
+      if (mounted) {
+        setState(() {
+          _fromEmail = 'noreply@example.com';
+        });
+      }
+    }
   }
 
   Future<void> _handleSend() async {
@@ -53,8 +87,11 @@ class _ComposeDialogState extends State<ComposeDialog> {
 
       final emailService = EmailService(backendUrl);
       
+      // Use loaded email address or fallback
+      final fromAddress = _fromEmail ?? 'noreply@example.com';
+      
       final success = await emailService.sendEmail(
-        from: 'admin@example.com', // TODO: Get from user's email addresses
+        from: fromAddress,
         to: _toController.text.trim(),
         subject: _subjectController.text.trim(),
         body: _bodyController.text,

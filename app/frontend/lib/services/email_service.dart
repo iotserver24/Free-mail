@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../models/email_message.dart';
 
 class EmailService {
@@ -31,7 +32,7 @@ class EmailService {
       
       return [];
     } catch (e) {
-      print('Error fetching emails: $e');
+      debugPrint('Error fetching emails: $e');
       return [];
     }
   }
@@ -52,7 +53,7 @@ class EmailService {
       
       return null;
     } catch (e) {
-      print('Error fetching email: $e');
+      debugPrint('Error fetching email: $e');
       return null;
     }
   }
@@ -86,7 +87,7 @@ class EmailService {
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('Error sending email: $e');
+      debugPrint('Error sending email: $e');
       return false;
     }
   }
@@ -102,7 +103,7 @@ class EmailService {
 
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {
-      print('Error deleting email: $e');
+      debugPrint('Error deleting email: $e');
       return false;
     }
   }
@@ -128,7 +129,7 @@ class EmailService {
       
       return [];
     } catch (e) {
-      print('Error fetching domains: $e');
+      debugPrint('Error fetching domains: $e');
       return [];
     }
   }
@@ -147,8 +148,34 @@ class EmailService {
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('Error adding domain: $e');
+      debugPrint('Error adding domain: $e');
       return false;
+    }
+  }
+  
+  Future<List<String>> fetchEmailAddresses() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$backendUrl/api/emails'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> emailsJson = data['emails'] ?? data['data'] ?? [];
+        
+        return emailsJson
+            .map((json) => json['address'] as String? ?? json['email'] as String? ?? '')
+            .where((email) => email.isNotEmpty)
+            .toList();
+      }
+      
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching email addresses: $e');
+      return [];
     }
   }
 }
