@@ -45,7 +45,7 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
   ; Files to be installed
-  File /r "build\windows\runner\Release\*"
+  File /r "build\windows\x64\runner\Release\*"
   
   CreateDirectory "$SMPROGRAMS\Free Mail"
   CreateShortCut "$SMPROGRAMS\Free Mail\Free Mail.lnk" "$INSTDIR\free_mail.exe"
