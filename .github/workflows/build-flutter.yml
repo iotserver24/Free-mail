@@ -47,7 +47,7 @@ jobs:
         continue-on-error: true
       
       - name: Build Android APK (Universal)
-        run: flutter build apk --release --no-shrink
+        run: flutter build apk --release
       
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -117,6 +117,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      
+      - name: Create Windows platform files
+        run: flutter create --platforms=windows .
+      
       - name: Build Windows
         run: flutter build windows --release
       
@@ -154,6 +160,12 @@ jobs:
       
       - name: Install dependencies
         run: flutter pub get
+      
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+      
+      - name: Create macOS platform files
+        run: flutter create --platforms=macos .
       
       - name: Build macOS (Universal)
         run: flutter build macos --release
@@ -196,6 +208,12 @@ jobs:
       
       - name: Install dependencies
         run: flutter pub get
+      
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+      
+      - name: Create Linux platform files
+        run: flutter create --platforms=linux .
       
       - name: Build Linux
         run: flutter build linux --release
