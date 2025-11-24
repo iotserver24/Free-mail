@@ -10,13 +10,16 @@ The Freemail mobile app provides a Gmail-like interface to access your self-host
 
 ```
 app/
-└── frontend/        # Flutter application for Android, iOS, Windows, and macOS
-    ├── lib/         # Source code
-    ├── android/     # Android-specific files
-    ├── ios/         # iOS-specific files
-    ├── windows/     # Windows-specific files
-    ├── macos/       # macOS-specific files
-    └── docs/        # Documentation
+├── frontend/        # Flutter application for Android, iOS, Windows, macOS, and Linux
+│   ├── lib/         # Source code
+│   ├── android/     # Android-specific files
+│   ├── ios/         # iOS-specific files
+│   ├── windows/     # Windows-specific files
+│   ├── macos/       # macOS-specific files
+│   ├── linux/       # Linux-specific files
+│   └── docs/        # Documentation
+└── .github/
+    └── workflows/   # CI/CD for automated builds
 ```
 
 ## Features
@@ -62,6 +65,19 @@ app/
 | **iOS** | 12.0 | arm64 | ✅ Ready |
 | **Windows** | 10 (1809+) | x64 | ✅ Ready |
 | **macOS** | 10.14 | Universal (Intel + Apple Silicon) | ✅ Ready |
+| **Linux** | Ubuntu 20.04+ | x64 | ✅ Ready |
+
+## CI/CD - Automated Builds
+
+GitHub Actions workflows automatically build the app for all platforms:
+
+- **Android**: Universal APK (all architectures)
+- **iOS**: Unsigned IPA (no code signing required)
+- **Windows**: x64 executable (ZIP)
+- **macOS**: Universal DMG (Intel + Apple Silicon)
+- **Linux**: x64 executable (tarball)
+
+Download pre-built binaries from the [Actions tab](../../actions) or see [CI/CD documentation](../.github/workflows/README.md) for details.
 
 ## Quick Start
 
