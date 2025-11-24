@@ -7,6 +7,7 @@ import '../widgets/email_list_item.dart';
 import '../widgets/compose_dialog.dart';
 import 'email_detail_screen.dart';
 import 'settings_screen.dart';
+import 'domains_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -163,7 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.domain),
               title: const Text('Domains'),
               onTap: () {
-                // TODO: Implement domains management
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const DomainsScreen(),
+                  ),
+                );
               },
             ),
             const Divider(),
