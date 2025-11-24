@@ -1,0 +1,87 @@
+name: Build CTO App
+
+on:
+  push:
+    paths:
+      - 'cto-app/**'
+  pull_request:
+    paths:
+      - 'cto-app/**'
+
+jobs:
+  build_android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms android .
+      - run: flutter pub get
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v3
+        with:
+          name: android-apk
+          path: cto-app/build/app/outputs/flutter-apk/app-debug.apk
+
+  build_windows:
+    name: Build Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms windows .
+      - run: flutter pub get
+      - run: flutter build windows
+      - uses: actions/upload-artifact@v3
+        with:
+          name: windows-app
+          path: cto-app/build/windows/runner/Release
+
+  build_ios:
+    name: Build iOS (No Codesign)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms ios .
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ios-app
+          path: cto-app/build/ios/iphoneos/Runner.app
+
+  build_macos:
+    name: Build macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms macos .
+      - run: flutter pub get
+      - run: flutter config --enable-macos-desktop
+      - run: flutter build macos --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-app
+          path: cto-app/build/macos/Build/Products/Release/*.app
