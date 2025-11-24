@@ -299,7 +299,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
                               } else {
                                 _bodyController.text = trimmed;
                               }
-                              if (result.subject != null &&
+                              if ((_subjectController.text.trim().isEmpty) &&
+                                  result.subject != null &&
                                   result.subject!.trim().isNotEmpty) {
                                 _subjectController.text =
                                     result.subject!.trim();

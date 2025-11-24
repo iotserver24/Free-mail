@@ -452,25 +452,71 @@ class ApiClient extends ChangeNotifier {
     if (data is Map) {
       mapData = Map<String, dynamic>.from(data);
     } else if (data is String) {
-      try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map) {
-          mapData = Map<String, dynamic>.from(decoded);
+      final structured = _extractStructuredMap(data);
+      if (structured != null) {
+        mapData = structured;
+      } else {
+        try {
+          final decoded = jsonDecode(data);
+          if (decoded is Map) {
+            mapData = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {
+          return GeneratedEmail(subject: null, body: data);
         }
-      } catch (_) {
-        return GeneratedEmail(subject: null, body: data);
       }
     }
 
     if (mapData != null) {
       final subject = mapData["subject"]?.toString();
-      final body = mapData["body"] ??
+      final bodyCandidate = mapData["body"] ??
           mapData["content"] ??
           mapData["text"] ??
           mapData["message"];
-      if (body != null) {
-        return GeneratedEmail(subject: subject, body: body.toString());
+      if (bodyCandidate != null) {
+        if (bodyCandidate is String) {
+          final nested = _extractStructuredMap(bodyCandidate);
+          if (nested != null) {
+            final nestedBody = nested["body"] ??
+                nested["content"] ??
+                nested["text"] ??
+                nested["message"];
+            final nestedSubject = nested["subject"]?.toString();
+            if (nestedBody != null) {
+              return GeneratedEmail(
+                subject: subject ?? nestedSubject,
+                body: nestedBody.toString(),
+              );
+            }
+          }
+        }
+        return GeneratedEmail(
+          subject: subject,
+          body: bodyCandidate.toString(),
+        );
       }
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _extractStructuredMap(String raw) {
+    final cleaned = raw.trim();
+    final blockMatch =
+        RegExp(r'```(?:json)?\s*([\s\S]*?)```', caseSensitive: false)
+            .firstMatch(cleaned);
+    final candidate = blockMatch != null
+        ? blockMatch.group(1)?.trim()
+        : cleaned.startsWith('{')
+            ? cleaned
+            : null;
+    if (candidate == null) return null;
+    try {
+      final decoded = jsonDecode(candidate);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {
+      return null;
     }
     return null;
   }
