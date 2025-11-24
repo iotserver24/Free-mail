@@ -127,9 +127,11 @@ class ApiClient extends ChangeNotifier {
 
   Future<bool> login(String url, String email, String password) async {
     try {
-      final normalizedUrl = _normalizeBaseUrl(url);
-      _baseUrl = normalizedUrl;
-      _initDio();
+      if (_baseUrl == null || _baseUrl != _normalizeBaseUrl(url)) {
+        final verified = await verifyBackend(url);
+        if (verified == null) return false;
+      }
+      final normalizedUrl = _baseUrl ?? _normalizeBaseUrl(url);
 
       final response = await _dio!.post("/api/auth/login", data: {
         "email": email,
@@ -150,6 +152,28 @@ class ApiClient extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<String?> verifyBackend(String url) async {
+    try {
+      final normalizedUrl = _normalizeBaseUrl(url);
+      final tempDio = Dio(
+        BaseOptions(
+          baseUrl: normalizedUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      final response = await tempDio.get("/api/status");
+      if (response.statusCode == 200) {
+        _baseUrl = normalizedUrl;
+        _initDio();
+        return normalizedUrl;
+      }
+    } catch (_) {
+      // ignore errors here, caller handles feedback
+    }
+    return null;
   }
 
   Future<void> logout() async {

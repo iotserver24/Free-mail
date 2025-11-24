@@ -107,6 +107,15 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+app.get("/api/status", (_req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV ?? "development",
+  });
+});
+
 // Initialize database on first request (for serverless) - non-blocking
 app.use(async (_req, _res, next) => {
   // Don't await - let it initialize in background

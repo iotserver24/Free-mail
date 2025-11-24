@@ -17,6 +17,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isVerifyingUrl = false;
+  bool _urlVerified = false;
+  String? _urlStatus;
 
   @override
   void initState() {
@@ -36,11 +39,22 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString('backend_url');
     if (url != null) {
-      _urlController.text = url;
+      setState(() {
+        _urlController.text = url;
+        _urlVerified = true;
+        _urlStatus = 'Using saved backend';
+      });
     }
   }
 
   Future<void> _login() async {
+    if (!_urlVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Verify backend URL before signing in.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -60,6 +74,45 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(
             content: Text('Login failed. Check credentials or URL.')),
       );
+    }
+  }
+
+  Future<void> _verifyUrl() async {
+    if (_urlController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter backend URL to verify.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isVerifyingUrl = true;
+      _urlStatus = null;
+      _urlVerified = false;
+    });
+
+    final apiClient = Provider.of<ApiClient>(context, listen: false);
+    final normalized = await apiClient.verifyBackend(_urlController.text);
+    if (!mounted) return;
+    setState(() {
+      _isVerifyingUrl = false;
+      if (normalized != null) {
+        _urlController.text = normalized;
+        _urlVerified = true;
+        _urlStatus = 'Backend verified';
+      } else {
+        _urlVerified = false;
+        _urlStatus = 'Unable to reach backend';
+      }
+    });
+  }
+
+  void _handleUrlChanged(String _) {
+    if (_urlVerified || _urlStatus != null) {
+      setState(() {
+        _urlVerified = false;
+        _urlStatus = null;
+      });
     }
   }
 
@@ -142,7 +195,25 @@ class _LoginScreenState extends State<LoginScreen> {
                               icon: Icons.link,
                               label: 'Backend URL',
                               hint: 'https://mail.yourdomain.com',
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              onPressed: _isVerifyingUrl ? null : _verifyUrl,
+                              tooltip: 'Verify backend',
+                              icon: _isVerifyingUrl
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Icon(
+                                      _urlVerified ? Icons.check_circle : Icons.cloud_outlined,
+                                      color: _urlVerified
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
                             ),
+                          ),
+                          onChanged: _handleUrlChanged,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter backend URL';
@@ -150,11 +221,28 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                        if (_urlStatus != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _urlStatus!,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _urlVerified
+                                  ? colorScheme.primary
+                                  : colorScheme.error,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(color: colorScheme.onSurface),
+                          enabled: _urlVerified,
+                          style: TextStyle(
+                            color: _urlVerified
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                             decoration: _inputDecoration(
                               icon: Icons.person,
                               label: 'Email',
@@ -171,7 +259,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
-                            style: TextStyle(color: colorScheme.onSurface),
+                          enabled: _urlVerified,
+                          style: TextStyle(
+                            color: _urlVerified
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                             decoration: _inputDecoration(
                               icon: Icons.lock,
                               label: 'Password',
@@ -186,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
                           FilledButton(
-                            onPressed: _isLoading ? null : _login,
+                          onPressed: _isLoading || !_urlVerified ? null : _login,
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
