@@ -99,7 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.mail_outline, size: 72, color: colorScheme.primary),
+                Image.asset(
+                  'assets/logo.png',
+                  height: 72,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Free Mail',

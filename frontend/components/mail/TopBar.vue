@@ -30,9 +30,12 @@ const selectedInbox = computed({
     <div class="flex flex-1 items-center gap-4">
       <!-- Logo -->
       <div class="flex items-center gap-2">
-        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 text-lg shadow-lg shadow-brand-500/30">
-          ✉️
-        </div>
+        <img
+          src="/logo.png"
+          alt="Free Mail Logo"
+          class="h-9 w-9 rounded-lg object-cover shadow-lg shadow-brand-500/30"
+          loading="lazy"
+        />
         <span class="hidden text-sm font-bold text-white md:block">Free Mail</span>
       </div>
 
