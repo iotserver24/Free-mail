@@ -28,7 +28,20 @@
                     <input type="file" class="hidden" accept="image/*" @change="handleFileUpload" />
                   </label>
                 </div>
-                <p v-if="uploading" class="text-xs text-blue-400">Uploading...</p>
+                <p v-if="uploading" class="text-xs text-blue-400">
+                  Uploading avatar… {{ uploadProgress }}%
+                </p>
+                <div v-if="form.avatar_url" class="text-xs text-gray-400 space-y-1 text-center">
+                  <p>Avatar URL</p>
+                  <a
+                    :href="form.avatar_url"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-blue-400 hover:text-blue-300 break-all"
+                  >
+                    {{ form.avatar_url }}
+                  </a>
+                </div>
               </div>
 
               <!-- Full Name -->
@@ -80,6 +93,19 @@
                 ></textarea>
               </div>
 
+              <!-- Personal Email -->
+              <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Personal Email</label>
+                <input
+                  v-model="form.personal_email"
+                  type="email"
+                  required
+                  class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder="personal@example.com"
+                />
+                <p class="text-xs text-gray-500 mt-2">Used for invites and password resets.</p>
+              </div>
+
               <!-- Password Options -->
               <div class="border-t border-gray-700 pt-4">
                 <label class="block text-sm font-medium text-gray-400 mb-3">Password</label>
@@ -105,14 +131,8 @@
                   />
                 </div>
 
-                <div v-if="form.passwordOption === 'invite'" class="animate-fade-in">
-                  <input
-                    v-model="form.personal_email"
-                    type="email"
-                    required
-                    class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Personal Email"
-                  />
+                <div v-if="form.passwordOption === 'invite'" class="text-xs text-gray-500">
+                  An invite link will be emailed to the personal address above.
                 </div>
               </div>
 
@@ -201,7 +221,8 @@ import { useAuthStore } from '~/stores/auth';
 import { useRouter } from 'vue-router';
 import { useApi } from '~/composables/useApi';
 import { useToasts } from '~/composables/useToasts';
-import type { DomainRecord, ApiUser } from '~/types/api';
+import { uploadToCatbox } from '~/lib/catbox';
+import type { DomainRecord } from '~/types/api';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -213,8 +234,11 @@ if (!authStore.isAdmin) {
   router.push('/');
 }
 
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
+
 const loading = ref(false);
 const uploading = ref(false);
+const uploadProgress = ref(0);
 const domains = ref<DomainRecord[]>([]);
 const users = ref<any[]>([]); // Using any for now to include extra fields like created_at
 
@@ -255,47 +279,41 @@ async function handleFileUpload(event: Event) {
   if (!input.files?.length) return;
 
   const file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    toasts.push({ title: 'Error', message: 'File size must be under 5MB', variant: 'error' });
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    toasts.push({ title: 'Error', message: 'File size must be under 2MB', variant: 'error' });
     return;
   }
 
   uploading.value = true;
-  const formData = new FormData();
-  formData.append('file', file);
+  uploadProgress.value = 0;
 
   try {
-    // We need to use fetch directly or configure useApi to handle FormData correctly if it doesn't already
-    // Assuming useApi handles it or we use raw fetch for upload
-    // Let's try useApi first, but usually it sets JSON headers. 
-    // If useApi is strict about JSON, we might need a custom call.
-    // For safety, let's use the token from authStore and raw fetch
-    
-    // Actually, let's try to use the api composable but we might need to unset Content-Type
-    // But since I can't see useApi implementation details right now, I'll assume standard fetch with auth header
-    
-    // Wait, I can see useApi in previous context? No.
-    // I'll use a standard fetch with the token.
-    
-    const token = useCookie('auth_token').value; // Assuming cookie name
-    // Or better, use api() and let it handle auth, but pass body as FormData
-    
-    const res = await api<{ url: string }>('/api/uploads/catbox', {
-      method: 'POST',
-      body: formData,
-      // headers: { 'Content-Type': undefined } // Let browser set boundary
+    const result = await uploadToCatbox(file, (percent) => {
+      uploadProgress.value = percent;
     });
-    
-    form.avatar_url = res.url;
+    form.avatar_url = result.url;
     toasts.push({ title: 'Success', message: 'Avatar uploaded', variant: 'success' });
   } catch (error: any) {
-    toasts.push({ title: 'Error', message: 'Upload failed', variant: 'error' });
+    toasts.push({ title: 'Error', message: error?.message || 'Upload failed', variant: 'error' });
   } finally {
     uploading.value = false;
+    uploadProgress.value = 0;
+    if (input) {
+      input.value = '';
+    }
   }
 }
 
 async function createUser() {
+  if (!form.personal_email) {
+    toasts.push({
+      title: 'Validation',
+      message: 'Personal email is required',
+      variant: 'error',
+    });
+    return;
+  }
+
   loading.value = true;
   try {
     await api('/api/users', {
@@ -307,7 +325,7 @@ async function createUser() {
         details: form.details,
         password: form.passwordOption === 'manual' ? form.password : undefined,
         send_invite: form.passwordOption === 'invite',
-        personal_email: form.passwordOption === 'invite' ? form.personal_email : undefined,
+        personal_email: form.personal_email,
         avatar_url: form.avatar_url || undefined,
       },
     });

@@ -47,6 +47,10 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
             return res.status(400).json({ error: "username and domain are required" });
         }
 
+        if (!personal_email) {
+            return res.status(400).json({ error: "personal email required" });
+        }
+
         // 1. Fetch domain to construct email
         const domainRecord = await getDomainById(req.userId!, domain_id);
         if (!domainRecord) {
@@ -64,9 +68,6 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
         let inviteTokenExpires = null;
 
         if (send_invite) {
-            if (!personal_email) {
-                return res.status(400).json({ error: "personal email required for invite" });
-            }
             inviteToken = uuid();
             inviteTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
         }

@@ -24,7 +24,6 @@ export async function uploadToCatbox(
   }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", endpoint);
-    xhr.responseType = "json";
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (event) => {
@@ -43,7 +42,7 @@ export async function uploadToCatbox(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const data = xhr.response ?? safeParse(xhr.responseText);
+        const data = parsePayload(xhr.response);
         if (data?.url) {
           resolve(data);
         } else {
@@ -53,8 +52,20 @@ export async function uploadToCatbox(
         let message = "Upload failed";
         if (xhr.status === 413) {
           message = "File exceeds the 20MB limit.";
-        } else if (typeof xhr.responseText === "string" && xhr.responseText.trim().length) {
-          message = xhr.responseText.trim();
+        } else if (xhr.status === 401) {
+          message = "Unauthorized. Please log in again.";
+        } else {
+          const errorPayload = parsePayload(xhr.response);
+          if (typeof errorPayload === "string" && errorPayload.trim().length) {
+            message = errorPayload.trim();
+          } else if (
+            typeof errorPayload === "object" &&
+            errorPayload !== null &&
+            "error" in errorPayload &&
+            typeof (errorPayload as any).error === "string"
+          ) {
+            message = (errorPayload as any).error;
+          }
         }
         reject(new Error(message));
       }
@@ -82,5 +93,15 @@ function safeParse(payload: unknown) {
   } catch {
     return null;
   }
+}
+
+function parsePayload(payload: unknown) {
+  if (typeof payload === "string") {
+    return safeParse(payload) ?? payload;
+  }
+  if (payload === null || payload === undefined) {
+    return null;
+  }
+  return payload;
 }
 

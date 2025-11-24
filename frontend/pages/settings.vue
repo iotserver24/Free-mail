@@ -5,6 +5,7 @@ import { useAuthStore } from '~/stores/auth';
 import { useMailStore } from '~/stores/mail';
 import { useApi } from '~/composables/useApi';
 import { useToasts } from '~/composables/useToasts';
+import { uploadToCatbox } from '~/lib/catbox';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -18,7 +19,9 @@ onMounted(async () => {
 
 const domainInput = ref("");
 const domainLoading = ref(false);
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 const avatarUploading = ref(false);
+const avatarUploadProgress = ref(0);
 
 const emailForm = reactive({
   localPart: "",
@@ -80,37 +83,38 @@ async function handleAvatarUpload(event: Event) {
   if (!input.files?.length) return;
 
   const file = input.files[0];
-  if (file.size > 5 * 1024 * 1024) {
-    toasts.push({ title: 'Error', message: 'File size must be under 5MB', variant: 'error' });
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    toasts.push({ title: 'Error', message: 'File size must be under 2MB', variant: 'error' });
     return;
   }
 
   avatarUploading.value = true;
-  const formData = new FormData();
-  formData.append('file', file);
+  avatarUploadProgress.value = 0;
 
   try {
-    // Upload to Catbox
-    const res = await api<{ url: string }>('/api/uploads/catbox', {
-      method: 'POST',
-      body: formData,
+    const uploadResult = await uploadToCatbox(file, (percent) => {
+      avatarUploadProgress.value = percent;
     });
 
     // Update User Profile
     if (auth.user?.id) {
       await api(`/api/users/${auth.user.id}`, {
         method: 'PATCH',
-        body: { avatar_url: res.url },
+        body: { avatar_url: uploadResult.url },
       });
       
       // Update local state
-      auth.user.avatarUrl = res.url;
+      auth.user.avatarUrl = uploadResult.url;
       toasts.push({ title: 'Success', message: 'Avatar updated', variant: 'success' });
     }
   } catch (error: any) {
     toasts.push({ title: 'Error', message: 'Upload failed', variant: 'error' });
   } finally {
     avatarUploading.value = false;
+    avatarUploadProgress.value = 0;
+    if (input) {
+      input.value = '';
+    }
   }
 }
 
@@ -154,11 +158,12 @@ async function handleLogout() {
                 <span class="text-xs text-white font-medium">Change</span>
                 <input type="file" class="hidden" accept="image/*" @change="handleAvatarUpload" :disabled="avatarUploading" />
               </label>
-              <div v-if="avatarUploading" class="absolute inset-0 flex items-center justify-center bg-black/70 rounded-full">
-                <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <div v-if="avatarUploading" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 rounded-full gap-2 text-white text-xs">
+                <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
+                <span>{{ avatarUploadProgress }}%</span>
               </div>
             </div>
             
