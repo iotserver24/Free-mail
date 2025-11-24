@@ -4,7 +4,7 @@ import * as emailsRepo from "../repositories/emails";
 import * as inboxesRepo from "../repositories/inboxes";
 import * as domainsRepo from "../repositories/domains";
 
-export const emailsRouter = Router();
+export const emailsRouter: Router = Router();
 
 emailsRouter.use(requireAuth);
 

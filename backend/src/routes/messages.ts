@@ -11,7 +11,7 @@ import {
 } from "../repositories/messages";
 import { getEmailByAddress } from "../repositories/emails";
 
-export const messagesRouter = Router();
+export const messagesRouter: Router = Router();
 
 messagesRouter.get("/", async (req, res, next) => {
   try {
