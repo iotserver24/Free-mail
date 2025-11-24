@@ -289,7 +289,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
                           if (result != null) {
                             setState(() {
-                              final trimmed = result.trim();
+                              final trimmed = result.body.trim();
                               if (_shouldPreserveQuotedTail() &&
                                   existingBody.trim().isNotEmpty) {
                                 final tail = existingBody.trimLeft();
@@ -298,6 +298,11 @@ class _ComposeScreenState extends State<ComposeScreen> {
                                 _hasQuotedContext = true;
                               } else {
                                 _bodyController.text = trimmed;
+                              }
+                              if (result.subject != null &&
+                                  result.subject!.trim().isNotEmpty) {
+                                _subjectController.text =
+                                    result.subject!.trim();
                               }
                             });
                             Navigator.pop(context);

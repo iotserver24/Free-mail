@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -367,7 +368,7 @@ class ApiClient extends ChangeNotifier {
     }
   }
 
-  Future<String?> generateEmail(
+  Future<GeneratedEmail?> generateEmail(
     String prompt, {
     List<Map<String, dynamic>>? context,
   }) async {
@@ -379,15 +380,18 @@ class ApiClient extends ChangeNotifier {
       };
       final response =
           await _dio!.post("/api/ai/generate-email", data: payload);
-      if (response.statusCode == 200 && response.data is Map) {
-        final data = response.data as Map;
-        if (data.containsKey("body")) return data["body"] as String?;
-        if (data.containsKey("content")) return data["content"] as String?;
+      if (response.statusCode == 200) {
+        final parsed = _parseGeneratedEmail(response.data);
+        if (parsed != null) return parsed;
       }
-      return response.data?.toString();
+      final fallback = response.data?.toString();
+      if (fallback != null) {
+        return GeneratedEmail(subject: null, body: fallback);
+      }
     } catch (_) {
       return null;
     }
+    return null;
   }
 
   Future<String?> summarizeEmail(String body) async {
@@ -442,4 +446,39 @@ class ApiClient extends ChangeNotifier {
     }
     return <String, dynamic>{};
   }
+
+  GeneratedEmail? _parseGeneratedEmail(dynamic data) {
+    Map<String, dynamic>? mapData;
+    if (data is Map) {
+      mapData = Map<String, dynamic>.from(data);
+    } else if (data is String) {
+      try {
+        final decoded = jsonDecode(data);
+        if (decoded is Map) {
+          mapData = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {
+        return GeneratedEmail(subject: null, body: data);
+      }
+    }
+
+    if (mapData != null) {
+      final subject = mapData["subject"]?.toString();
+      final body = mapData["body"] ??
+          mapData["content"] ??
+          mapData["text"] ??
+          mapData["message"];
+      if (body != null) {
+        return GeneratedEmail(subject: subject, body: body.toString());
+      }
+    }
+    return null;
+  }
+}
+
+class GeneratedEmail {
+  final String? subject;
+  final String body;
+
+  GeneratedEmail({this.subject, required this.body});
 }

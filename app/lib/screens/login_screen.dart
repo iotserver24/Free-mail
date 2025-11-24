@@ -116,28 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _inputDecoration({
-    required IconData icon,
-    required String label,
-    String? hint,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final fillColor =
-        colorScheme.surfaceContainerHighest.withValues(alpha: 0.4);
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon, color: colorScheme.primary),
-      filled: true,
-      fillColor: fillColor,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: colorScheme.primary),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -173,145 +151,221 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Card(
-                  elevation: 8,
-                  color:
-                      colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextFormField(
-                            controller: _urlController,
-                            keyboardType: TextInputType.url,
-                            style: TextStyle(color: colorScheme.onSurface),
-                            decoration: _inputDecoration(
-                              icon: Icons.link,
-                              label: 'Backend URL',
-                              hint: 'https://mail.yourdomain.com',
-                          ).copyWith(
-                            suffixIcon: IconButton(
-                              onPressed: _isVerifyingUrl ? null : _verifyUrl,
-                              tooltip: 'Verify backend',
-                              icon: _isVerifyingUrl
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : Icon(
-                                      _urlVerified ? Icons.check_circle : Icons.cloud_outlined,
-                                      color: _urlVerified
-                                          ? colorScheme.primary
-                                          : colorScheme.onSurfaceVariant,
-                                    ),
-                            ),
-                          ),
-                          onChanged: _handleUrlChanged,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter backend URL';
-                              }
-                              return null;
-                            },
-                          ),
-                        if (_urlStatus != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _urlStatus!,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: _urlVerified
-                                  ? colorScheme.primary
-                                  : colorScheme.error,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                          enabled: _urlVerified,
-                          style: TextStyle(
-                            color: _urlVerified
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                            decoration: _inputDecoration(
-                              icon: Icons.person,
-                              label: 'Email',
-                              hint: 'admin@example.com',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter email';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                          enabled: _urlVerified,
-                          style: TextStyle(
-                            color: _urlVerified
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                            decoration: _inputDecoration(
-                              icon: Icons.lock,
-                              label: 'Password',
-                              hint: 'Your admin password',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter password';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton(
-                          onPressed: _isLoading || !_urlVerified ? null : _login,
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: colorScheme.onPrimary,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Sign in'),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Use the same admin credentials configured in your backend .env file.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                _urlVerified
+                    ? _LoginForm(
+                        formKey: _formKey,
+                        emailController: _emailController,
+                        passwordController: _passwordController,
+                        isLoading: _isLoading,
+                        onSubmit: _login,
+                      )
+                    : _UrlVerificationCard(
+                        urlController: _urlController,
+                        verifying: _isVerifyingUrl,
+                        statusText: _urlStatus,
+                        onVerify: _verifyUrl,
+                        onChanged: _handleUrlChanged,
                       ),
-                    ),
-                  ),
-                ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UrlVerificationCard extends StatelessWidget {
+  const _UrlVerificationCard({
+    required this.urlController,
+    required this.verifying,
+    required this.onVerify,
+    required this.onChanged,
+    this.statusText,
+  });
+
+  final TextEditingController urlController;
+  final bool verifying;
+  final VoidCallback onVerify;
+  final ValueChanged<String> onChanged;
+  final String? statusText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Card(
+      elevation: 8,
+      color: colors.surfaceContainerHigh.withValues(alpha: 0.6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Connect to your backend',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: urlController,
+              keyboardType: TextInputType.url,
+              style: TextStyle(color: colors.onSurface),
+              decoration: InputDecoration(
+                labelText: 'Backend URL',
+                hintText: 'https://mail.yourdomain.com',
+                prefixIcon: const Icon(Icons.link),
+                suffixIcon: IconButton(
+                  onPressed: verifying ? null : onVerify,
+                  tooltip: 'Verify backend',
+                  icon: verifying
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                ),
+                filled: true,
+                fillColor:
+                    colors.surfaceContainerHighest.withValues(alpha: 0.4),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              onChanged: onChanged,
+            ),
+            if (statusText != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                statusText!,
+                style: TextStyle(
+                  color: statusText!.contains('verified')
+                      ? colors.primary
+                      : colors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: verifying ? null : onVerify,
+              child: verifying
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Verify'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginForm extends StatelessWidget {
+  const _LoginForm({
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+    required this.isLoading,
+    required this.onSubmit,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool isLoading;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Card(
+      elevation: 8,
+      color: colors.surfaceContainerHigh.withValues(alpha: 0.6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Administrator credentials',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'admin@example.com',
+                  prefixIcon: const Icon(Icons.person_outline),
+                  filled: true,
+                  fillColor:
+                      colors.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter email';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  hintText: 'Your admin password',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  filled: true,
+                  fillColor:
+                      colors.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter password';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        if (formKey.currentState?.validate() ?? false) {
+                          onSubmit();
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Sign in'),
+              ),
+            ],
           ),
         ),
       ),
