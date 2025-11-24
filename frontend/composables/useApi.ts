@@ -8,9 +8,6 @@ export const useApi = (): $Fetch => {
   if (!apiClient) {
     apiClient = $fetch.create({
       baseURL: runtimeConfig.public.apiBase,
-      headers: {
-        "Content-Type": "application/json",
-      },
       credentials: "include",
       onResponseError({ response }) {
         console.error("API error", response.status, response._data);

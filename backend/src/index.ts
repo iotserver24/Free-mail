@@ -46,6 +46,9 @@ try {
 
   app.use(cors(corsOptions));
 
+  // Register uploads route BEFORE express.json() to prevent JSON parsing of multipart data
+  app.use("/api/uploads", requireAuth, uploadsRouter);
+
   app.use(express.json({ limit: "25mb" })); // Increased for attachment URLs
   app.use(morgan("dev"));
 
@@ -122,7 +125,6 @@ app.use("/api/emails", requireAuth, emailsRouter);
 app.use("/api/inboxes", requireAuth, inboxesRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
-app.use("/api/uploads", requireAuth, uploadsRouter);
 app.use("/api/ai", requireAuth, aiRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
 // Other webhook routes can use raw for direct email forwarding
