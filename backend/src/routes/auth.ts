@@ -12,36 +12,63 @@ authRouter.post("/login", async (req, res, next) => {
       return res.status(400).json({ error: "email and password are required" });
     }
 
-    // Check against admin credentials from environment
-    if (email !== config.admin.email || password !== config.admin.password) {
-      return res.status(401).json({ error: "invalid credentials" });
-    }
+    let user;
 
-    // Ensure admin user exists in database (for foreign key constraints)
-    let adminUser = await getUserByEmail(config.admin.email);
-    if (!adminUser) {
-      // Create admin user if it doesn't exist
-      await createUser({
-        email: config.admin.email,
-        password: config.admin.password,
-        displayName: "Admin",
-      });
-      // Fetch the created user with password_hash for consistency
-      adminUser = await getUserByEmail(config.admin.email);
-      if (!adminUser) {
-        return res.status(500).json({ error: "failed to create admin user" });
+    // 1. Check if it's the super admin from environment
+    if (email === config.admin.email) {
+      if (password !== config.admin.password) {
+        return res.status(401).json({ error: "invalid credentials" });
+      }
+
+      // Ensure admin user exists in database
+      user = await getUserByEmail(config.admin.email);
+      if (!user) {
+        // Create admin user if it doesn't exist
+        await createUser({
+          email: config.admin.email,
+          username: "admin",
+          password: config.admin.password, // This will be hashed
+          displayName: "Admin",
+          role: "admin",
+        });
+        user = await getUserByEmail(config.admin.email);
+      } else if (user.role !== "admin") {
+        // Ensure role is admin
+        const { updateUser } = await import("../repositories/users");
+        await updateUser(user.id, { role: "admin" });
+        user.role = "admin";
+      }
+    } else {
+      // 2. Regular user login
+      user = await getUserByEmail(email);
+
+      if (!user || !user.password_hash) {
+        return res.status(401).json({ error: "invalid credentials" });
+      }
+
+      const { verifyPassword } = await import("../repositories/users");
+      const isValid = await verifyPassword(password, user.password_hash);
+
+      if (!isValid) {
+        return res.status(401).json({ error: "invalid credentials" });
       }
     }
 
-    // Set session with admin user ID
-    (req.session as { userId?: string; email?: string }).userId = adminUser.id;
-    (req.session as { userId?: string; email?: string }).email = config.admin.email;
+    if (!user) {
+      return res.status(500).json({ error: "login failed" });
+    }
+
+    // Set session
+    (req.session as { userId?: string; email?: string }).userId = user.id;
+    (req.session as { userId?: string; email?: string }).email = user.email;
 
     return res.json({
       user: {
-        id: adminUser.id,
-        email: config.admin.email,
-        displayName: "Admin",
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        displayName: user.display_name ?? "User",
+        role: user.role,
       },
     });
   } catch (error) {
@@ -66,7 +93,7 @@ authRouter.get("/me", async (req, res, next) => {
   try {
     const userId = (req.session as { userId?: string; email?: string }).userId;
     const email = (req.session as { userId?: string; email?: string }).email;
-    
+
     if (!userId || !email) {
       return res.status(401).json({ error: "not authenticated" });
     }

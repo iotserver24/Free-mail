@@ -57,7 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login failed. Check credentials or URL.')),
+        const SnackBar(
+            content: Text('Login failed. Check credentials or URL.')),
       );
     }
   }
@@ -68,12 +69,14 @@ class _LoginScreenState extends State<LoginScreen> {
     String? hint,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final fillColor =
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.4);
     return InputDecoration(
       labelText: label,
       hintText: hint,
       prefixIcon: Icon(icon, color: colorScheme.primary),
       filled: true,
-      fillColor: colorScheme.surfaceVariant.withOpacity(0.2),
+      fillColor: fillColor,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
@@ -115,7 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32),
                 Card(
                   elevation: 8,
-                  color: colorScheme.surfaceVariant.withOpacity(0.3),
+                  color:
+                      colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),

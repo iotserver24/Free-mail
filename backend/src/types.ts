@@ -28,7 +28,13 @@ export interface AttachmentRecord {
 export interface UserRecord {
   id: string;
   email: string;
+  username: string;
   display_name: string | null;
+  personal_email: string | null;
+  permanent_domain: string | null;
+  role: "admin" | "user";
+  invite_token: string | null;
+  invite_token_expires: string | null;
   created_at: string;
 }
 

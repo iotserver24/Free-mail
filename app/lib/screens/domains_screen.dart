@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../api/api_client.dart';
 
 class DomainsScreen extends StatefulWidget {
@@ -10,46 +11,79 @@ class DomainsScreen extends StatefulWidget {
 }
 
 class _DomainsScreenState extends State<DomainsScreen> {
-  // Since we don't have a getDomains method in ApiClient yet (except implicitly),
-  // let's add one or assume we use the one we added.
-  // Wait, I only added `addDomain` to ApiClient, not `getDomains`.
-  // I need to update ApiClient to fetch domains.
-  // `getDomains` -> GET /api/domains
-  
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDomains());
+  }
+
+  Future<void> _loadDomains({bool force = true}) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final client = Provider.of<ApiClient>(context, listen: false);
+    try {
+      await client.loadDomains(force: force);
+    } catch (_) {
+      _error = 'Unable to load domains';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // For now, let's just implement add domain. Listing is secondary but good to have.
-    // I'll update ApiClient in a moment.
-    
     return Scaffold(
-      appBar: AppBar(title: const Text('Domains')),
+      appBar: AppBar(
+        title: const Text('Domains'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loading ? null : () => _loadDomains(force: true),
+          ),
+        ],
+      ),
       body: Consumer<ApiClient>(
         builder: (context, client, child) {
-          // We need getDomains.
-          return FutureBuilder(
-            future: _fetchDomains(client), 
-            builder: (context, snapshot) {
-               if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-               
-               if (snapshot.hasError) return const Center(child: Text("Error loading domains"));
+          final domains = client.domains;
 
-               final domains = snapshot.data as List;
-               
-               if (domains.isEmpty) {
-                 return const Center(child: Text("No domains added yet"));
-               }
+          if (_loading && domains.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-               return ListView.builder(
-                 itemCount: domains.length,
-                 itemBuilder: (context, index) {
-                   final d = domains[index];
-                   return ListTile(
-                     title: Text(d['domain'] ?? ''),
-                     subtitle: Text(d['created_at'] ?? ''),
-                   );
-                 },
-               );
-            }
+          if (_error != null && domains.isEmpty) {
+            return _errorView();
+          }
+
+          if (domains.isEmpty) {
+            return _emptyState();
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => _loadDomains(force: true),
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: domains.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final domain = domains[index];
+                return ListTile(
+                  leading: const Icon(Icons.language),
+                  title: Text(domain['domain'] as String? ?? ''),
+                  subtitle: Text(
+                    domain['created_at'] as String? ?? 'Pending verification',
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -60,16 +94,46 @@ class _DomainsScreenState extends State<DomainsScreen> {
     );
   }
 
-  Future<List<dynamic>> _fetchDomains(ApiClient client) async {
-     // Hack: direct dio access or add method.
-     // Ideally update ApiClient.
-     // I'll implement a temporary solution or assume I update ApiClient.
-     // Let's assume I update ApiClient.
-     try {
-       return await client.getDomains();
-     } catch (e) {
-       return [];
-     }
+  Widget _errorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48),
+            const SizedBox(height: 12),
+            Text(_error ?? ''),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => _loadDomains(force: true),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.domain_add, size: 64),
+            SizedBox(height: 16),
+            Text('No domains yet'),
+            SizedBox(height: 8),
+            Text(
+              'Add your first domain to start creating inboxes.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _addDomain(BuildContext context) {
@@ -83,23 +147,32 @@ class _DomainsScreenState extends State<DomainsScreen> {
           decoration: const InputDecoration(hintText: 'example.com'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () async {
               final domain = controller.text.trim();
-              if (domain.isNotEmpty) {
-                 final client = Provider.of<ApiClient>(context, listen: false);
-                 final success = await client.addDomain(domain);
-                 if (success && mounted) {
-                   Navigator.pop(context);
-                   setState(() {}); // Refresh list
-                 }
+              if (domain.isEmpty) return;
+              final client = Provider.of<ApiClient>(context, listen: false);
+              final success = await client.addDomain(domain);
+              if (!context.mounted) return;
+              if (success) {
+                Navigator.pop(context);
+                if (mounted) {
+                  _loadDomains(force: true);
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to add domain')),
+                );
               }
-            }, 
-            child: const Text('Add')
+            },
+            child: const Text('Add'),
           ),
         ],
-      )
+      ),
     );
   }
 }

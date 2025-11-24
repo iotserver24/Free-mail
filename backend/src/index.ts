@@ -113,7 +113,10 @@ app.use(async (_req, _res, next) => {
   next();
 });
 
+import { usersRouter } from "./routes/users";
+
 app.use("/api/auth", authRouter);
+app.use("/api/users", usersRouter);
 app.use("/api/domains", requireAuth, domainsRouter);
 app.use("/api/emails", requireAuth, emailsRouter);
 app.use("/api/inboxes", requireAuth, inboxesRouter);

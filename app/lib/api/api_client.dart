@@ -284,42 +284,6 @@ class ApiClient extends ChangeNotifier {
     return _mapObject(response.data);
   }
 
-  Future<List<dynamic>> getInboxes() async {
-    if (_dio == null) throw Exception("Client not initialized");
-    final response = await _dio!.get('/api/inboxes');
-    if (response.statusCode == 200) {
-      return response.data as List<dynamic>;
-    }
-    throw Exception("Failed to load inboxes");
-  }
-
-  Future<List<dynamic>> getDomains() async {
-    if (_dio == null) throw Exception("Client not initialized");
-    final response = await _dio!.get('/api/domains');
-    if (response.statusCode == 200) {
-      return response.data as List<dynamic>;
-    }
-    throw Exception("Failed to load domains");
-  }
-
-  Future<List<dynamic>> getMessages(String? inboxId) async {
-    if (_dio == null) throw Exception("Client not initialized");
-
-    final response = await _dio!.get(
-      '/api/messages',
-      queryParameters: inboxId != null ? {'inboxId': inboxId} : null,
-    );
-    if (response.statusCode == 200) {
-      if (response.data is List) {
-        return response.data;
-      } else if (response.data is Map && response.data['messages'] != null) {
-        return response.data['messages'];
-      }
-      return [];
-    }
-    throw Exception("Failed to load messages");
-  }
-
   Future<List<Map<String, dynamic>>> fetchThread(String threadId) async {
     if (_dio == null) throw Exception("Client not initialized");
     final response = await _dio!.get("/api/messages/thread/$threadId");
@@ -331,12 +295,18 @@ class ApiClient extends ChangeNotifier {
     required List<String> to,
     required String subject,
     required String body,
+    List<String>? cc,
+    List<String>? bcc,
+    String? threadId,
   }) async {
     if (_dio == null) return false;
     try {
       final response = await _dio!.post("/api/messages", data: {
         "from": from,
         "to": to,
+        if (cc != null && cc.isNotEmpty) "cc": cc,
+        if (bcc != null && bcc.isNotEmpty) "bcc": bcc,
+        if (threadId != null) "threadId": threadId,
         "subject": subject,
         "text": body,
         "html": "<p>${body.replaceAll("\n", "<br />")}</p>",
@@ -370,12 +340,18 @@ class ApiClient extends ChangeNotifier {
     }
   }
 
-  Future<String?> generateEmail(String prompt) async {
+  Future<String?> generateEmail(
+    String prompt, {
+    List<Map<String, dynamic>>? context,
+  }) async {
     if (_dio == null) return null;
     try {
-      final response = await _dio!.post("/api/ai/generate-email", data: {
+      final payload = {
         "prompt": prompt,
-      });
+        if (context != null && context.isNotEmpty) "context": context,
+      };
+      final response =
+          await _dio!.post("/api/ai/generate-email", data: payload);
       if (response.statusCode == 200 && response.data is Map) {
         final data = response.data as Map;
         if (data.containsKey("body")) return data["body"] as String?;
@@ -426,10 +402,8 @@ class ApiClient extends ChangeNotifier {
   static List<Map<String, dynamic>> _mapList(dynamic data) {
     if (data is List) {
       return data
-          .where((item) => item is Map)
-          .map<Map<String, dynamic>>(
-            (item) => Map<String, dynamic>.from(item as Map),
-          )
+          .whereType<Map>()
+          .map<Map<String, dynamic>>(Map<String, dynamic>.from)
           .toList();
     }
     return <Map<String, dynamic>>[];
