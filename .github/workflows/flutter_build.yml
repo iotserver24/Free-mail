@@ -1,0 +1,246 @@
+name: Build CTO App
+
+on:
+  push:
+    paths:
+      - 'cto-app/**'
+  pull_request:
+    paths:
+      - 'cto-app/**'
+
+jobs:
+  build_android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - run: flutter create --platforms android .
+      - run: ./set_app_name.sh
+      - run: flutter pub get
+      
+      # Create a self-signed key for release build if needed, or just use debug.
+      # User said "without certificate", but "not debug app".
+      # The standard way to get a release APK without a real cert is to sign with a dummy one.
+      - name: Generate Keystore
+        run: |
+          keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload -dname "CN=FreeMail, OU=CTO, O=CTO, L=Unknown, S=Unknown, C=US" -storepass password -keypass password
+          
+      - name: Configure Signing
+        run: |
+          echo "storePassword=password" > android/key.properties
+          echo "keyPassword=password" >> android/key.properties
+          echo "keyAlias=upload" >> android/key.properties
+          echo "storeFile=../upload-keystore.jks" >> android/key.properties
+          
+      # We need to modify build.gradle to use this config.
+      # This is tricky with just sed. 
+      # Alternatively, we can just build --release and if it fails due to missing config, we fallback.
+      # But wait, the default flutter template usually has a 'release' build type that looks for 'key.properties' IF configured in build.gradle.
+      # Default template DOES NOT read key.properties by default.
+      # I'll try to append the signing config to android/app/build.gradle using a script.
+      
+      - name: Patch build.gradle for signing
+        run: |
+          # Add signing config to build.gradle
+          # This is a crude patch.
+          cat >> android/app/build.gradle <<EOF
+          
+          android {
+              signingConfigs {
+                  release {
+                      keyAlias 'upload'
+                      keyPassword 'password'
+                      storeFile file('../upload-keystore.jks')
+                      storePassword 'password'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+      
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-android
+          path: cto-app/build/app/outputs/flutter-apk/app-release.apk
+
+  build_windows:
+    name: Build Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms windows .
+      # Use git bash or powershell to run the shell script? set_app_name.sh is bash.
+      - run: bash ./set_app_name.sh
+      - run: flutter pub get
+      - run: flutter build windows --release
+      
+      - name: Install NSIS
+        run: |
+           choco install nsis
+           
+      - name: Create Installer
+        run: |
+           makensis installer.nsi
+           
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-windows-installer
+          path: cto-app/FreeMail_Setup.exe
+
+  build_linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: flutter create --platforms linux .
+      - run: ./set_app_name.sh
+      - run: flutter pub get
+      - run: flutter build linux --release
+      
+      - name: Package Zip
+        run: |
+          cd build/linux/x64/release/bundle
+          zip -r ../../../../../free-mail-linux-x64.zip .
+          
+      # Simple DEB packaging
+      - name: Package Deb
+        run: |
+          mkdir -p deb/DEBIAN
+          mkdir -p deb/usr/local/bin
+          mkdir -p deb/usr/local/lib/free-mail
+          cp -r build/linux/x64/release/bundle/* deb/usr/local/lib/free-mail/
+          ln -s /usr/local/lib/free-mail/free_mail deb/usr/local/bin/free-mail
+          
+          cat > deb/DEBIAN/control <<EOF
+          Package: free-mail
+          Version: 1.0.0
+          Section: mail
+          Priority: optional
+          Architecture: amd64
+          Maintainer: CTO <admin@example.com>
+          Description: Free Mail App
+           A Flutter based email client.
+          EOF
+          
+          dpkg-deb --build deb free-mail-linux-x64.deb
+          
+      # Simple RPM packaging using alien (easier than setting up rpmbuild spec sometimes) or just skip if too complex.
+      # Installing rpm is easy.
+      - name: Package RPM
+        run: |
+           sudo apt-get install -y rpm
+           # Use alien to convert deb to rpm
+           sudo apt-get install -y alien
+           sudo alien -r free-mail-linux-x64.deb
+           
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-linux-x64
+          path: |
+            cto-app/free-mail-linux-x64.zip
+            cto-app/free-mail-linux-x64.deb
+            cto-app/*.rpm
+
+  build_ios:
+    name: Build iOS (No Codesign)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms ios .
+      - run: ./set_app_name.sh
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-ios-app
+          path: cto-app/build/ios/iphoneos/Runner.app
+
+  build_macos_intel:
+    name: Build macOS (Intel)
+    runs-on: macos-13
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms macos .
+      - run: ./set_app_name.sh
+      - run: flutter pub get
+      - run: flutter config --enable-macos-desktop
+      - run: flutter build macos --release
+      
+      - name: Zip App
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../free-mail-macos-intel.zip Free\ Mail.app
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-macos-intel
+          path: cto-app/free-mail-macos-intel.zip
+
+  build_macos_arm:
+    name: Build macOS (Apple Silicon)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms macos .
+      - run: ./set_app_name.sh
+      - run: flutter pub get
+      - run: flutter config --enable-macos-desktop
+      - run: flutter build macos --release
+      
+      - name: Zip App
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../free-mail-macos-arm.zip Free\ Mail.app
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-mail-macos-arm
+          path: cto-app/free-mail-macos-arm.zip
