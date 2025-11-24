@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -71,14 +71,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-android
-          path: cto-app/build/app/outputs/flutter-apk/app-release.apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
 
   build_windows:
     name: Build Windows
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -103,14 +103,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-windows-installer
-          path: cto-app/FreeMail_Setup.exe
+          path: app/FreeMail_Setup.exe
 
   build_linux:
     name: Build Linux (x64)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -159,16 +159,16 @@ jobs:
         with:
           name: free-mail-linux-x64
           path: |
-            cto-app/free-mail-linux-x64.zip
-            cto-app/free-mail-linux-x64.deb
-            cto-app/*.rpm
+            app/free-mail-linux-x64.zip
+            app/free-mail-linux-x64.deb
+            app/*.rpm
 
   build_ios:
     name: Build iOS (No Codesign)
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -181,14 +181,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-ios-app
-          path: cto-app/build/ios/iphoneos/Runner.app
+          path: app/build/ios/iphoneos/Runner.app
 
   build_macos_intel:
     name: Build macOS (Intel)
     runs-on: macos-13
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -208,14 +208,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-macos-intel
-          path: cto-app/free-mail-macos-intel.zip
+          path: app/free-mail-macos-intel.zip
 
   build_macos_arm:
     name: Build macOS (Apple Silicon)
     runs-on: macos-14
     defaults:
       run:
-        working-directory: ./cto-app
+        working-directory: ./app
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -235,4 +235,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-macos-arm
-          path: cto-app/free-mail-macos-arm.zip
+          path: app/free-mail-macos-arm.zip

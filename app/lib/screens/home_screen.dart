@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? _selectedInboxId;
   String _selectedInboxName = "All Mail";
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,10 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-             icon: const Icon(Icons.search),
-             onPressed: () {
-               // TODO: Search
-             },
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // TODO: Search
+            },
           )
         ],
       ),
@@ -40,18 +40,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Consumer<ApiClient>(
           builder: (context, client, child) {
             return FutureBuilder(
-              future: client.getMailboxes(),
+              future: client.getInboxes(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 final mailboxes = snapshot.data as List;
                 return ListView(
                   children: [
                     const UserAccountsDrawerHeader(
                       accountName: Text("Admin"),
-                      accountEmail: Text("admin@example.com"), 
+                      accountEmail: Text("admin@example.com"),
                       currentAccountPicture: CircleAvatar(
                         child: Icon(Icons.person),
                       ),
@@ -69,26 +69,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                     ...mailboxes.map((mb) {
-                       return ListTile(
-                         leading: const Icon(Icons.mail_outline),
-                         title: Text(mb['name'] ?? 'Inbox'),
-                         selected: _selectedInboxId == mb['id'],
-                         onTap: () {
-                           setState(() {
-                             _selectedInboxId = mb['id'];
-                             _selectedInboxName = mb['name'] ?? 'Inbox';
-                           });
-                           Navigator.pop(context);
-                         },
-                       );
+                      return ListTile(
+                        leading: const Icon(Icons.mail_outline),
+                        title: Text(mb['name'] ?? 'Inbox'),
+                        subtitle:
+                            mb['email'] != null ? Text(mb['email']) : null,
+                        selected: _selectedInboxId == mb['id'],
+                        onTap: () {
+                          setState(() {
+                            _selectedInboxId = mb['id'];
+                            _selectedInboxName = mb['name'] ?? 'Inbox';
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
                     }).toList(),
                     const Divider(),
                     ListTile(
                       leading: const Icon(Icons.domain),
                       title: const Text('Domains'),
                       onTap: () {
-                         Navigator.pop(context);
-                         Navigator.push(context, MaterialPageRoute(builder: (_) => const DomainsScreen()));
+                        Navigator.pop(context);
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const DomainsScreen()));
                       },
                     ),
                     ListTile(
@@ -116,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
-              
+
               final messages = snapshot.data as List;
               if (messages.isEmpty) {
                 return const Center(child: Text('No messages'));
@@ -129,7 +134,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Basic Gmail-like list item
                   return ListTile(
                     leading: CircleAvatar(
-                      child: Text((msg['sender_email'] ?? '?').substring(0, 1).toUpperCase()),
+                      child: Text((msg['sender_email'] ?? '?')
+                          .substring(0, 1)
+                          .toUpperCase()),
                     ),
                     title: Text(
                       msg['subject'] ?? '(No Subject)',
@@ -154,9 +161,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     isThreeLine: true,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => MessageDetailScreen(message: msg),
-                      ));
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MessageDetailScreen(message: msg),
+                          ));
                     },
                   );
                 },
@@ -167,7 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const ComposeScreen()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ComposeScreen()));
         },
         child: const Icon(Icons.edit),
       ),

@@ -1,96 +1,296 @@
+import 'dart:async';
+
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient extends ChangeNotifier {
+  ApiClient({String? baseUrl}) {
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      _baseUrl = _normalizeBaseUrl(baseUrl);
+      _initDio();
+      _hydrateExistingSession();
+    }
+  }
+
   Dio? _dio;
   String? _baseUrl;
-  bool _isLoggedIn = false;
   final CookieJar _cookieJar = CookieJar();
+
+  bool _isLoggedIn = false;
+  bool _mailBootstrapped = false;
+  bool _bootstrappingMail = false;
+  bool _loadingMessages = false;
+  String? _mailError;
+
+  Map<String, dynamic>? _user;
+  List<Map<String, dynamic>> _domains = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _emails = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _inboxes = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _messages = <Map<String, dynamic>>[];
+  String? _activeInboxId;
 
   bool get isLoggedIn => _isLoggedIn;
   String? get baseUrl => _baseUrl;
+  Map<String, dynamic>? get user => _user;
 
-  ApiClient({String? baseUrl}) {
-    if (baseUrl != null && baseUrl.isNotEmpty) {
-      _baseUrl = baseUrl;
-      _initDio();
+  List<Map<String, dynamic>> get domains => List.unmodifiable(_domains);
+  List<Map<String, dynamic>> get emails => List.unmodifiable(_emails);
+  List<Map<String, dynamic>> get inboxes => List.unmodifiable(_inboxes);
+  List<Map<String, dynamic>> get messages => List.unmodifiable(_messages);
+
+  bool get mailBootstrapped => _mailBootstrapped;
+  bool get isBootstrappingMail => _bootstrappingMail;
+  bool get loadingMessages => _loadingMessages;
+  String? get mailError => _mailError;
+
+  String? get activeInboxId => _activeInboxId;
+
+  String get activeInboxTitle {
+    if (_activeInboxId == null) {
+      return _mailBootstrapped ? "All Mail" : "Mailboxes";
     }
+    final inbox = _inboxes.firstWhere(
+      (item) => item["id"] == _activeInboxId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (inbox.isEmpty) {
+      return "Inbox";
+    }
+    final name = inbox["name"] as String?;
+    final email = inbox["email"] as String?;
+    if (name != null && name.isNotEmpty) return name;
+    if (email != null && email.isNotEmpty) return email;
+    return "Inbox";
+  }
+
+  String? get activeFromAddress {
+    if (_activeInboxId == null && _emails.isEmpty) {
+      return null;
+    }
+    final match = _emails.firstWhere(
+      (email) => email["inbox_id"] == _activeInboxId,
+      orElse: () => _emails.isNotEmpty ? _emails.first : <String, dynamic>{},
+    );
+    return match["email"] as String?;
   }
 
   void _initDio() {
     if (_baseUrl == null) return;
-    
-    BaseOptions options = BaseOptions(
+    final options = BaseOptions(
       baseUrl: _baseUrl!,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      validateStatus: (status) {
-        return status! < 500;
-      },
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: const {"Accept": "application/json"},
+      validateStatus: (status) => status != null && status < 500,
     );
-
     _dio = Dio(options);
     _dio!.interceptors.add(CookieManager(_cookieJar));
   }
 
+  Future<void> _hydrateExistingSession() async {
+    try {
+      await _hydrateUser();
+      if (_isLoggedIn) {
+        await bootstrapMail();
+      }
+    } catch (_) {
+      // Silent failure, user will be prompted to login again.
+    }
+  }
+
+  Future<void> _hydrateUser() async {
+    if (_dio == null) return;
+    try {
+      final response = await _dio!.get("/api/auth/me");
+      final payload = response.data;
+      if (response.statusCode == 200 &&
+          payload is Map &&
+          payload["user"] is Map) {
+        _user = Map<String, dynamic>.from(payload["user"] as Map);
+        _isLoggedIn = true;
+      } else {
+        _user = null;
+        _isLoggedIn = false;
+      }
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 401) {
+        _user = null;
+        _isLoggedIn = false;
+      }
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<bool> login(String url, String email, String password) async {
     try {
-      // Normalize URL
-      if (!url.startsWith('http')) {
-        url = 'https://$url';
-      }
-      if (url.endsWith('/')) {
-        url = url.substring(0, url.length - 1);
-      }
-      
-      _baseUrl = url;
+      final normalizedUrl = _normalizeBaseUrl(url);
+      _baseUrl = normalizedUrl;
       _initDio();
 
-      final response = await _dio!.post('/api/auth/login', data: {
-        'email': email,
-        'password': password,
+      final response = await _dio!.post("/api/auth/login", data: {
+        "email": email,
+        "password": password,
       });
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200) {
         _isLoggedIn = true;
-        
-        // Save URL
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('backend_url', _baseUrl!);
-        
+        await prefs.setString("backend_url", normalizedUrl);
+
+        await _hydrateUser();
+        await bootstrapMail(force: true);
         notifyListeners();
         return true;
-      } else {
-        return false;
       }
-    } catch (e) {
-      print('Login error: $e');
+      return false;
+    } catch (_) {
       return false;
     }
   }
-  
+
   Future<void> logout() async {
     try {
-      if (_dio != null) {
-        await _dio!.post('/api/auth/logout');
-      }
-    } catch (e) {
-      // ignore
+      await _dio?.post("/api/auth/logout");
+    } catch (_) {
+      // Ignore logout failures because we'll drop local session regardless.
+    } finally {
+      await _cookieJar.deleteAll();
+      _resetMailState();
+      _isLoggedIn = false;
+      _user = null;
+      notifyListeners();
     }
-    _isLoggedIn = false;
-    notifyListeners();
   }
 
-  Future<List<dynamic>> getMailboxes() async {
+  Future<void> bootstrapMail({bool force = false}) async {
+    if (_dio == null || !_isLoggedIn) return;
+    if (_bootstrappingMail) return;
+
+    _bootstrappingMail = true;
+    _mailError = null;
+    notifyListeners();
+
+    try {
+      await Future.wait([
+        loadDomains(force: force),
+        loadEmails(force: force),
+        loadInboxes(force: force),
+      ]);
+
+      if (_activeInboxId == null && _emails.isNotEmpty) {
+        _activeInboxId = _emails.first["inbox_id"] as String?;
+      }
+
+      await loadMessages(force: true);
+      _mailBootstrapped = true;
+    } catch (_) {
+      _mailError = "Failed to load mail data";
+    } finally {
+      _bootstrappingMail = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshMail() async {
+    await bootstrapMail(force: true);
+  }
+
+  Future<void> loadDomains({bool force = false}) async {
+    if (_dio == null || (!_isLoggedIn && !force)) return;
+    if (_domains.isNotEmpty && !force) return;
+
+    try {
+      final response = await _dio!.get("/api/domains");
+      _domains = _mapList(response.data);
+      notifyListeners();
+    } catch (_) {
+      if (_domains.isEmpty) {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> loadEmails({bool force = false}) async {
+    if (_dio == null || (!_isLoggedIn && !force)) return;
+    if (_emails.isNotEmpty && !force) return;
+
+    try {
+      final response = await _dio!.get("/api/emails");
+      _emails = _mapList(response.data);
+      notifyListeners();
+    } catch (_) {
+      if (_emails.isEmpty) {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> loadInboxes({bool force = false}) async {
+    if (_dio == null || (!_isLoggedIn && !force)) return;
+    if (_inboxes.isNotEmpty && !force) return;
+
+    try {
+      final response = await _dio!.get("/api/inboxes");
+      _inboxes = _mapList(response.data);
+      notifyListeners();
+    } catch (_) {
+      if (_inboxes.isEmpty) {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> loadMessages({bool force = false}) async {
+    if (_dio == null || !_isLoggedIn) return;
+    if (_messages.isNotEmpty && !force) return;
+
+    _loadingMessages = true;
+    _mailError = null;
+    notifyListeners();
+
+    try {
+      final query = <String, dynamic>{
+        "limit": 50,
+        if (_activeInboxId != null) "inboxId": _activeInboxId,
+      };
+      final response = await _dio!.get("/api/messages", queryParameters: query);
+      _messages = _mapList(response.data);
+    } catch (_) {
+      _mailError = "Unable to load messages";
+      _messages = <Map<String, dynamic>>[];
+    } finally {
+      _loadingMessages = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshMessages() => loadMessages(force: true);
+
+  Future<void> setActiveInbox(String? inboxId) async {
+    if (_activeInboxId == inboxId) return;
+    _activeInboxId = inboxId;
+    _messages = <Map<String, dynamic>>[];
+    notifyListeners();
+    await loadMessages(force: true);
+  }
+
+  Future<Map<String, dynamic>> fetchMessageDetail(String messageId) async {
     if (_dio == null) throw Exception("Client not initialized");
-    final response = await _dio!.get('/api/mailboxes');
+    final response = await _dio!.get("/api/messages/$messageId");
+    return _mapObject(response.data);
+  }
+
+  Future<List<dynamic>> getInboxes() async {
+    if (_dio == null) throw Exception("Client not initialized");
+    final response = await _dio!.get('/api/inboxes');
     if (response.statusCode == 200) {
       return response.data as List<dynamic>;
     }
-    throw Exception("Failed to load mailboxes");
+    throw Exception("Failed to load inboxes");
   }
 
   Future<List<dynamic>> getDomains() async {
@@ -104,17 +304,12 @@ class ApiClient extends ChangeNotifier {
 
   Future<List<dynamic>> getMessages(String? inboxId) async {
     if (_dio == null) throw Exception("Client not initialized");
-    // Depending on backend, might filter by inboxId or get all.
-    // Swagger says /api/messages.
-    // Let's check Swagger again for params.
-    
-    final response = await _dio!.get('/api/messages'); 
+
+    final response = await _dio!.get(
+      '/api/messages',
+      queryParameters: inboxId != null ? {'inboxId': inboxId} : null,
+    );
     if (response.statusCode == 200) {
-      // The backend returns { messages: [], total: 0 } usually, let's check.
-      // Swagger says Response is... well, it doesn't specify the list structure cleanly in the snippet I saw, 
-      // but usually it's a list or paginated object.
-      // Assuming it returns a JSON which contains the messages.
-      
       if (response.data is List) {
         return response.data;
       } else if (response.data is Map && response.data['messages'] != null) {
@@ -124,7 +319,13 @@ class ApiClient extends ChangeNotifier {
     }
     throw Exception("Failed to load messages");
   }
-  
+
+  Future<List<Map<String, dynamic>>> fetchThread(String threadId) async {
+    if (_dio == null) throw Exception("Client not initialized");
+    final response = await _dio!.get("/api/messages/thread/$threadId");
+    return _mapList(response.data);
+  }
+
   Future<bool> sendMessage({
     required String from,
     required List<String> to,
@@ -132,79 +333,112 @@ class ApiClient extends ChangeNotifier {
     required String body,
   }) async {
     if (_dio == null) return false;
-    
     try {
-      final response = await _dio!.post('/api/send', data: {
-        'from': from,
-        'to': to,
-        'subject': subject,
-        'text': body,
-        'html': body, // sending same for html for simplicity
+      final response = await _dio!.post("/api/messages", data: {
+        "from": from,
+        "to": to,
+        "subject": subject,
+        "text": body,
+        "html": "<p>${body.replaceAll("\n", "<br />")}</p>",
       });
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      print("Send error: $e");
+      final success = response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 202;
+      if (success) {
+        unawaited(loadMessages(force: true));
+      }
+      return success;
+    } catch (_) {
       return false;
     }
   }
 
-  // Domain adding
   Future<bool> addDomain(String domain) async {
-     // Based on memory/swagger, I need to check how to add domains.
-     // Swagger didn't show /api/domains explicitly in the first snippet but likely exists if it's "self-hosted" with domain adding.
-     // Wait, the Swagger snippet ended early.
-     // I'll assume standard REST conventions or I might need to check more files.
-     // Let's assume /api/domains is the endpoint.
-     if (_dio == null) return false;
-     try {
-       final response = await _dio!.post('/api/domains', data: {'domain': domain});
-       return response.statusCode == 200 || response.statusCode == 201;
-     } catch(e) {
-       return false;
-     }
+    if (_dio == null) return false;
+    try {
+      final response =
+          await _dio!.post("/api/domains", data: {"domain": domain});
+      final success = response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 202;
+      if (success) {
+        await loadDomains(force: true);
+      }
+      return success;
+    } catch (_) {
+      return false;
+    }
   }
 
-  // AI Methods
   Future<String?> generateEmail(String prompt) async {
     if (_dio == null) return null;
     try {
-      final response = await _dio!.post('/api/ai/generate-email', data: {
-        'prompt': prompt,
+      final response = await _dio!.post("/api/ai/generate-email", data: {
+        "prompt": prompt,
       });
-      if (response.statusCode == 200) {
-        // Assuming response structure based on common patterns, check backend service if needed.
-        // Usually { subject: ..., body: ... } or just text.
-        // Let's assume it returns { subject, body } or just body content.
-        // The ai.routes.ts says res.json(result).
-        // I should check aiService.generateEmail return type. 
-        // But let's assume it returns a map.
-        final data = response.data;
-        if (data is Map) {
-           if (data.containsKey('body')) return data['body'];
-           if (data.containsKey('content')) return data['content'];
-           // Fallback
-           return data.toString();
-        }
-        return response.data.toString();
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = response.data as Map;
+        if (data.containsKey("body")) return data["body"] as String?;
+        if (data.containsKey("content")) return data["content"] as String?;
       }
-    } catch (e) {
-      print('AI Generate error: $e');
+      return response.data?.toString();
+    } catch (_) {
+      return null;
     }
-    return null;
   }
 
   Future<String?> summarizeEmail(String body) async {
     if (_dio == null) return null;
     try {
-      final response = await _dio!.post('/api/ai/summarize', data: {
-        'body': body,
+      final response = await _dio!.post("/api/ai/summarize", data: {
+        "body": body,
       });
-      if (response.statusCode == 200) {
-        return response.data['summary'];
+      if (response.statusCode == 200 && response.data is Map) {
+        return (response.data as Map)["summary"] as String?;
       }
-    } catch (e) {
-      print('AI Summarize error: $e');
+    } catch (_) {
+      return null;
     }
     return null;
+  }
+
+  void _resetMailState() {
+    _domains = <Map<String, dynamic>>[];
+    _emails = <Map<String, dynamic>>[];
+    _inboxes = <Map<String, dynamic>>[];
+    _messages = <Map<String, dynamic>>[];
+    _activeInboxId = null;
+    _mailBootstrapped = false;
+    _bootstrappingMail = false;
+    _loadingMessages = false;
+    _mailError = null;
+  }
+
+  static String _normalizeBaseUrl(String raw) {
+    var url = raw.trim();
+    if (!url.startsWith("http")) {
+      url = "https://$url";
+    }
+    url = url.endsWith("/") ? url.substring(0, url.length - 1) : url;
+    return url;
+  }
+
+  static List<Map<String, dynamic>> _mapList(dynamic data) {
+    if (data is List) {
+      return data
+          .where((item) => item is Map)
+          .map<Map<String, dynamic>>(
+            (item) => Map<String, dynamic>.from(item as Map),
+          )
+          .toList();
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  static Map<String, dynamic> _mapObject(dynamic data) {
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return <String, dynamic>{};
   }
 }
