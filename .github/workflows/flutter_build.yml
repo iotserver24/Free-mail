@@ -16,14 +16,14 @@ jobs:
       run:
         working-directory: ./cto-app
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
       - run: flutter create --platforms android .
       - run: flutter pub get
       - run: flutter build apk --debug
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: cto-app/build/app/outputs/flutter-apk/app-debug.apk
@@ -35,14 +35,14 @@ jobs:
       run:
         working-directory: ./cto-app
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
       - run: flutter create --platforms windows .
       - run: flutter pub get
       - run: flutter build windows
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: windows-app
           path: cto-app/build/windows/runner/Release
@@ -54,26 +54,26 @@ jobs:
       run:
         working-directory: ./cto-app
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
       - run: flutter create --platforms ios .
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ios-app
           path: cto-app/build/ios/iphoneos/Runner.app
 
-  build_macos:
-    name: Build macOS
-    runs-on: macos-latest
+  build_macos_intel:
+    name: Build macOS (Intel)
+    runs-on: macos-13
     defaults:
       run:
         working-directory: ./cto-app
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
@@ -81,7 +81,27 @@ jobs:
       - run: flutter pub get
       - run: flutter config --enable-macos-desktop
       - run: flutter build macos --release
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: macos-app
+          name: macos-app-intel
+          path: cto-app/build/macos/Build/Products/Release/*.app
+
+  build_macos_arm:
+    name: Build macOS (Apple Silicon)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ./cto-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms macos .
+      - run: flutter pub get
+      - run: flutter config --enable-macos-desktop
+      - run: flutter build macos --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-arm
           path: cto-app/build/macos/Build/Products/Release/*.app
