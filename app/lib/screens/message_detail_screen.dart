@@ -211,7 +211,9 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
 
   String _formatTimestamp(DateTime? date) {
     if (date == null) return '';
-    return _dateFormat.format(date);
+    // Convert UTC to IST (UTC+5:30)
+    final istDate = date.toUtc().add(const Duration(hours: 5, minutes: 30));
+    return _dateFormat.format(istDate);
   }
 
   @override
@@ -220,6 +222,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     final sender = widget.message['sender_email'] as String? ?? 'Unknown';
     final createdAt = widget.message['created_at'] as String?;
     final createdDate = createdAt != null ? DateTime.tryParse(createdAt) : null;
+    final createdAtLabel =
+        createdDate != null ? _formatTimestamp(createdDate) : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -296,8 +300,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                     .cast<String>()
                     .join(', ')
                 : widget.message['recipient_emails']?.toString() ?? '—',
-            createdAt:
-                createdDate != null ? _dateFormat.format(createdDate) : null,
+            createdAt: createdAtLabel,
           ),
           Expanded(
             child: _loadingThread
@@ -342,7 +345,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                                       'Unknown'),
                               recipients: recipients,
                               timestamp: entryDate != null
-                                  ? _dateFormat.format(entryDate)
+                                  ? _formatTimestamp(entryDate)
                                   : null,
                               body: _plainBody(entry) ?? '',
                               hasHtml:

@@ -118,7 +118,7 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     body_plain: input.bodyPlain ?? null,
     body_html: input.bodyHtml ?? null,
     status: input.status,
-    is_read: false,
+    is_read: input.direction === "outbound", // Mark sent emails as read by default
     folder: input.direction === "outbound" ? "sent" : "inbox",
     is_starred: false,
     created_at: new Date().toISOString(),
@@ -159,7 +159,9 @@ export async function listMessages(
   const collection = db.collection("messages");
 
   const query: any = { user_id: userId };
-  if (inboxId !== undefined) {
+  // Only filter by inbox when explicitly provided (not undefined)
+  // This allows "All Mail" to show messages from all accessible inboxes
+  if (inboxId !== undefined && inboxId !== null) {
     query.inbox_id = inboxId;
   }
   if (folder) {

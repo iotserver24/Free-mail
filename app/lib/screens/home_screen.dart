@@ -254,14 +254,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.mail,
                           title: 'All Mail',
                           selected: _selectedFolder == null &&
-                              _isStarredFilter != true,
-                          onTap: () {
+                              _isStarredFilter != true &&
+                              client.activeInboxId == null,
+                          onTap: () async {
+                            final wasSpecificInbox =
+                                client.activeInboxId != null;
                             setState(() {
                               _selectedFolder = null;
                               _isStarredFilter = null;
                             });
                             Navigator.pop(context);
-                            _refreshMessages();
+                            if (wasSpecificInbox) {
+                              await client.setActiveInbox(null);
+                            } else {
+                              await _refreshMessages();
+                            }
                           },
                         ),
                         _buildInboxTile(
@@ -604,8 +611,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '';
-    final date = DateTime.parse(dateStr).toLocal();
-    final now = DateTime.now();
+    // Convert UTC to IST (UTC+5:30)
+    final date = DateTime.parse(dateStr)
+        .toUtc()
+        .add(const Duration(hours: 5, minutes: 30));
+    final now =
+        DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
