@@ -69,6 +69,7 @@ authRouter.post("/login", async (req, res, next) => {
         username: user.username,
         displayName: user.display_name ?? "User",
         role: user.role,
+        avatarUrl: user.avatar_url,
       },
     });
   } catch (error) {
@@ -109,7 +110,10 @@ authRouter.get("/me", async (req, res, next) => {
       user: {
         id: user.id,
         email: user.email,
-        displayName: user.display_name ?? "Admin",
+        username: user.username,
+        displayName: user.display_name ?? "User",
+        role: user.role,
+        avatarUrl: user.avatar_url,
       },
     });
   } catch (error) {

@@ -148,3 +148,11 @@ export async function deleteEmail(userId: string, emailId: string): Promise<bool
   return result.deletedCount > 0;
 }
 
+export async function deleteEmailAny(emailId: string): Promise<boolean> {
+  const db = await getDb();
+  const collection = db.collection("email_addresses");
+
+  const result = await collection.deleteOne({ id: emailId });
+  return result.deletedCount > 0;
+}
+

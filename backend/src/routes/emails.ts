@@ -21,6 +21,11 @@ emailsRouter.get("/", async (req, res, next) => {
 // Create a new email address
 emailsRouter.post("/", async (req, res, next) => {
   try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
     const { email, domain, inboxName } = req.body;
 
     if (!email || typeof email !== "string" || !email.trim()) {
@@ -96,6 +101,11 @@ emailsRouter.get("/:emailId", async (req, res, next) => {
 // Delete an email address
 emailsRouter.delete("/:emailId", async (req, res, next) => {
   try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
     const { emailId } = req.params;
 
     // Get email to find inbox_id
@@ -108,7 +118,11 @@ emailsRouter.delete("/:emailId", async (req, res, next) => {
     await inboxesRepo.deleteInbox(req.userId!, email.inbox_id);
 
     // Delete email
-    const deleted = await emailsRepo.deleteEmail(req.userId!, emailId);
+    // Admin can delete any email, so we use deleteEmailAny or we need to pass userId if we want to check ownership (but we are admin)
+    // Since we verified admin above, we can just delete by ID.
+    // However, the original code used deleteEmail(req.userId!, emailId) which implies ownership.
+    // We should probably use deleteEmailAny here since the route is now admin-only.
+    const deleted = await emailsRepo.deleteEmailAny(emailId);
 
     if (!deleted) {
       return res.status(404).json({ error: "email not found" });

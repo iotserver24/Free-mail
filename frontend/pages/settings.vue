@@ -14,9 +14,7 @@ const api = useApi();
 const toasts = useToasts();
 
 onMounted(async () => {
-  if (auth.isAdmin) {
-    await mail.bootstrap();
-  }
+  await mail.bootstrap();
   // Initialize profile form
   const user = auth.user;
   if (user) {
@@ -292,74 +290,75 @@ async function handleLogout() {
               <li v-if="!mail.domains.length" class="text-slate-500">No domains yet.</li>
             </ul>
           </section>
+        </template>
 
-          <section class="glass-panel rounded-3xl p-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Emails</p>
-                <h2 class="text-xl font-semibold">Create inbox identities</h2>
-              </div>
-              <span class="rounded-full bg-slate-800/70 px-3 py-1 text-xs text-slate-300">{{ mail.emails.length }} addresses</span>
+        <!-- Emails Section (Visible to all) -->
+        <section class="glass-panel rounded-3xl p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Emails</p>
+              <h2 class="text-xl font-semibold">{{ auth.isAdmin ? 'Create inbox identities' : 'Your Inboxes' }}</h2>
             </div>
+            <span class="rounded-full bg-slate-800/70 px-3 py-1 text-xs text-slate-300">{{ mail.emails.length }} addresses</span>
+          </div>
 
-            <form class="mt-4 space-y-4" @submit.prevent="handleEmailCreate">
-              <div class="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label class="text-xs text-slate-500">Local part</label>
-                  <input
-                    v-model="emailForm.localPart"
-                    type="text"
-                    placeholder="support"
-                    class="mt-1 w-full rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-slate-500">Domain</label>
-                  <select
-                    v-model="emailForm.domain"
-                    class="mt-1 w-full rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
-                  >
-                    <option v-for="domain in mail.domains" :key="domain.id" :value="domain.domain">
-                      {{ domain.domain }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-
+          <form v-if="auth.isAdmin" class="mt-4 space-y-4" @submit.prevent="handleEmailCreate">
+            <div class="grid gap-4 md:grid-cols-2">
               <div>
-                <label class="text-xs text-slate-500">Inbox label</label>
+                <label class="text-xs text-slate-500">Local part</label>
                 <input
-                  v-model="emailForm.inboxName"
+                  v-model="emailForm.localPart"
                   type="text"
-                  placeholder="Customer Support"
+                  placeholder="support"
                   class="mt-1 w-full rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
                 />
               </div>
-
-              <p class="text-sm text-slate-400">Preview: <span class="font-semibold text-white">{{ emailPreview || "—" }}</span></p>
-
-              <button
-                type="submit"
-                :disabled="emailLoading || !emailPreview"
-                class="w-full rounded-2xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-400 disabled:opacity-50"
-              >
-                {{ emailLoading ? "Creating…" : "Create email & inbox" }}
-              </button>
-            </form>
-
-            <div class="mt-6 space-y-3 text-sm">
-              <div
-                v-for="email in mail.emails"
-                :key="email.id"
-                class="rounded-2xl border border-slate-800/70 px-4 py-3 text-slate-200"
-              >
-                <p class="font-semibold">{{ email.email }}</p>
-                <p class="text-xs text-slate-500">Inbox: {{ email.inbox_id }}</p>
+              <div>
+                <label class="text-xs text-slate-500">Domain</label>
+                <select
+                  v-model="emailForm.domain"
+                  class="mt-1 w-full rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
+                >
+                  <option v-for="domain in mail.domains" :key="domain.id" :value="domain.domain">
+                    {{ domain.domain }}
+                  </option>
+                </select>
               </div>
-              <p v-if="!mail.emails.length" class="text-slate-500">No email identities yet. Create a domain first.</p>
             </div>
-          </section>
-        </template>
+
+            <div>
+              <label class="text-xs text-slate-500">Inbox label</label>
+              <input
+                v-model="emailForm.inboxName"
+                type="text"
+                placeholder="Customer Support"
+                class="mt-1 w-full rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none"
+              />
+            </div>
+
+            <p class="text-sm text-slate-400">Preview: <span class="font-semibold text-white">{{ emailPreview || "—" }}</span></p>
+
+            <button
+              type="submit"
+              :disabled="emailLoading || !emailPreview"
+              class="w-full rounded-2xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-400 disabled:opacity-50"
+            >
+              {{ emailLoading ? "Creating…" : "Create email & inbox" }}
+            </button>
+          </form>
+
+          <div class="mt-6 space-y-3 text-sm">
+            <div
+              v-for="email in mail.emails"
+              :key="email.id"
+              class="rounded-2xl border border-slate-800/70 px-4 py-3 text-slate-200"
+            >
+              <p class="font-semibold">{{ email.email }}</p>
+              <p class="text-xs text-slate-500">Inbox: {{ email.inbox_id }}</p>
+            </div>
+            <p v-if="!mail.emails.length" class="text-slate-500">No email identities yet. {{ auth.isAdmin ? 'Create a domain first.' : 'Ask an admin to assign one.' }}</p>
+          </div>
+        </section>
       </div>
     </main>
   </div>

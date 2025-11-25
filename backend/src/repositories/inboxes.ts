@@ -121,3 +121,11 @@ export async function deleteInbox(userId: string, inboxId: string): Promise<bool
   return result.deletedCount > 0;
 }
 
+export async function deleteInboxAny(inboxId: string): Promise<boolean> {
+  const db = await getDb();
+  const collection = db.collection("inboxes");
+
+  const result = await collection.deleteOne({ id: inboxId });
+  return result.deletedCount > 0;
+}
+

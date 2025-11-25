@@ -11,7 +11,7 @@ inboxesRouter.use(requireAuth);
 inboxesRouter.get("/", async (req, res, next) => {
   try {
     const inboxes = await inboxesRepo.listInboxes(req.userId!);
-    
+
     // Enrich with email information
     const enrichedInboxes = await Promise.all(
       inboxes.map(async (inbox) => {
@@ -22,7 +22,7 @@ inboxesRouter.get("/", async (req, res, next) => {
         };
       })
     );
-    
+
     return res.json(enrichedInboxes);
   } catch (error) {
     next(error);
@@ -32,8 +32,13 @@ inboxesRouter.get("/", async (req, res, next) => {
 // Create a new inbox (for an existing email)
 inboxesRouter.post("/", async (req, res, next) => {
   try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
     const { emailId, name } = req.body;
-    
+
     if (!emailId || typeof emailId !== "string" || !emailId.trim()) {
       return res.status(400).json({ error: "emailId is required" });
     }
@@ -65,7 +70,7 @@ inboxesRouter.get("/:inboxId", async (req, res, next) => {
   try {
     const { inboxId } = req.params;
     const inbox = await inboxesRepo.getInboxById(req.userId!, inboxId);
-    
+
     if (!inbox) {
       return res.status(404).json({ error: "inbox not found" });
     }
@@ -84,9 +89,14 @@ inboxesRouter.get("/:inboxId", async (req, res, next) => {
 // Delete an inbox
 inboxesRouter.delete("/:inboxId", async (req, res, next) => {
   try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
     const { inboxId } = req.params;
-    const deleted = await inboxesRepo.deleteInbox(req.userId!, inboxId);
-    
+    const deleted = await inboxesRepo.deleteInboxAny(inboxId);
+
     if (!deleted) {
       return res.status(404).json({ error: "inbox not found" });
     }
