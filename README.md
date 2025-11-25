@@ -9,6 +9,7 @@ Self-hosted email studio that lets you own custom domains, inboxes, and outbound
 ---
 
 ## Table of Contents
+
 1. [Repository Layout](#repository-layout)
 2. [Feature Highlights](#feature-highlights)
 3. [Architecture Overview](#architecture-overview)
@@ -43,6 +44,27 @@ Self-hosted email studio that lets you own custom domains, inboxes, and outbound
 - Attachment pipeline that uploads files to Catbox (25 MB per file limit) and stores metadata in MongoDB.
 - Health endpoint (`/health`) plus detailed API reference in `backend/docs/api-reference.md`.
 - Environment-first configuration so every dependency (MongoDB, Brevo, Catbox, Cloudflare) can be swapped per deployment.
+
+## Admin User Management
+
+Free-mail supports a role-based user system:
+
+- **Admin**: Can create new users, manage all domains and inboxes, and view all system data.
+- **User**: Can view their own domains and inboxes.
+
+### Creating Users (Admin Only)
+
+Admins can create new users via the API (`POST /api/users`). Required fields include:
+
+- `username`: The user's desired handle.
+- `domain_id`: The domain to associate with the user's email (e.g., `username@domain.com`).
+- `personal_email`: A recovery email address for password resets.
+
+The system automatically:
+
+1. Creates the user account.
+2. Provisions a main inbox.
+3. Sends an invite email to the `personal_email` with a link to set the password.
 
 ---
 
@@ -108,6 +130,7 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
 ## Local Development
 
 1. **Clone & install**
+
    ```bash
    git clone <repo>
    cd Free-mail
@@ -126,6 +149,7 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
    - (Optional) run `ngrok http 4000` if testing inbound email locally.
 
 4. **Run services**
+
    ```bash
    # terminal 1
    cd backend
@@ -141,8 +165,9 @@ Keep `ENV_CONFIG.md` handy as a checklist while updating secrets.
    ```
 
 5. **Login & test**
+
 - Visit `http://localhost:3000`, log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
-   - Create domains/emails/inboxes, send yourself a test email, and verify it lands in MongoDB.
+  - Create domains/emails/inboxes, send yourself a test email, and verify it lands in MongoDB.
 
 ---
 
@@ -170,11 +195,13 @@ See `ATTACHMENTS.md` for a visual flow plus security considerations (virus scann
 1. Install Wrangler globally: `npm install -g wrangler`.
 2. `cd cloudflare-worker && wrangler login`.
 3. Set secrets:
+
    ```bash
    wrangler secret put BACKEND_URL   # e.g., https://xxxx.ngrok.io
    wrangler secret put WEBHOOK_SECRET
    wrangler secret put WEBHOOK_PATH  # optional
    ```
+
 4. Deploy: `wrangler deploy`.
 5. In Cloudflare Email Routing, add a catch-all route (`*@yourdomain.com`) and choose the deployed Worker as the action.
 
@@ -206,5 +233,3 @@ Whenever the backend URL changes (local ngrok vs production), update `BACKEND_UR
 - **Production hardening**: move session storage to Redis, consider virus scanning for attachments, and replace Catbox with a private store if handling sensitive data.
 
 For more detail, browse the docs in `backend/docs/` and the setup guides in the repository root. Happy emailing! ✉️
-
-

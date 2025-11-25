@@ -14,6 +14,14 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
   3. On reload, call `GET /api/auth/me` to hydrate the session.
   4. To logout, `POST /api/auth/logout` and clear local UI state.
 
+## User Management (Admin)
+
+Admins can create new users via `POST /api/users`.
+
+- Required fields: `username`, `domain_id`, `personal_email`.
+- The backend handles invite emails automatically.
+- Use `GET /api/users` to list all users for management UIs.
+
 ## Base URLs & CORS
 
 - Point the frontend `.env` to the backend origin, e.g. `NUXT_PUBLIC_API_BASE=http://localhost:4000`.
@@ -31,6 +39,7 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
 
 1. Upload files directly to Catbox from the browser by `POST`ing form data to `https://catbox.moe/user/api.php`. The response is a public URL.
 2. Build the compose payload:
+
    ```ts
    await axios.post(
      `${API_URL}/api/messages`,
@@ -51,6 +60,7 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
      { withCredentials: true }
    );
    ```
+
 3. The backend downloads the remote attachments, relays via Brevo, and stores them for later display.
 
 ## Handling Attachments
@@ -68,13 +78,13 @@ Use this guide when wiring up a new UI (React, Vue, etc.). It covers authenticat
 ## Dev Workflow Tips
 
 - In Nuxt, leverage `$fetch` or `ofetch` with runtime config so every request automatically includes cookies:  
+
   ```ts
   const api = $fetch.create({
     baseURL: useRuntimeConfig().public.apiBase,
     credentials: "include",
   });
   ```
+
 - When running the Nuxt dev server, the backend session remains valid as long as you don’t clear cookies.
 - Use the `/` root endpoint response to show a nice status indicator in the UI (it returns `status`, `health`, and route hints).
-
-

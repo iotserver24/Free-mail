@@ -49,12 +49,30 @@
           },
           "displayName": {
             "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ]
+          },
+          "personal_email": {
+            "type": "string",
+            "format": "email"
+          },
+          "invite_token": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
           "email",
-          "displayName"
+          "displayName",
+          "role"
         ]
       },
       "Domain": {
@@ -573,49 +591,6 @@
         "responses": {
           "204": {
             "description": "Session destroyed"
-          },
-          "401": {
-            "description": "Not authenticated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/me": {
-      "get": {
-        "summary": "Current user",
-        "tags": [
-          "Auth"
-        ],
-        "security": [
-          {
-            "cookieAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authenticated user",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "user": {
-                      "$ref": "#/components/schemas/User"
-                    }
-                  },
-                  "required": [
-                    "user"
-                  ]
-                }
-              }
-            }
           },
           "401": {
             "description": "Not authenticated",
@@ -1462,7 +1437,219 @@
           }
         }
       }
+    },
+    "/api/users": {
+      "get": {
+        "summary": "List users",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin only"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "domain_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "personal_email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "username",
+                  "domain_id",
+                  "personal_email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin only"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "patch": {
+        "summary": "Update user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "pfp": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/invite/{token}": {
+      "post": {
+        "summary": "Accept invite",
+        "tags": [
+          "Users"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invite accepted"
+          }
+        }
+      }
+    },
+    "/api/users/forgot-password": {
+      "post": {
+        "summary": "Request password reset",
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset email sent"
+          }
+        }
+      }
     }
   }
 }
-

@@ -169,6 +169,12 @@ usersRouter.patch("/:id", requireAuth, async (req, res, next) => {
             delete updates.email; // Usually email shouldn't be changed easily
         }
 
+        // Map API 'pfp' to DB 'avatar_url'
+        if (updates.pfp !== undefined) {
+            updates.avatar_url = updates.pfp;
+            delete updates.pfp;
+        }
+
         const updatedUser = await updateUser(id, updates);
         if (!updatedUser) {
             return res.status(404).json({ error: "user not found" });

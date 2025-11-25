@@ -14,8 +14,8 @@ The Free-mail backend is an Express + TypeScript application that exposes a sess
 
 ## Request Flow
 
-1. **Auth** – Admin logs in via `/api/auth/login`. Credentials are checked against `ADMIN_EMAIL` / `ADMIN_PASSWORD`, then stored in the Express-session cookie.
-2. **Domain & email provisioning** – After authentication, the frontend calls `/api/domains`, `/api/emails`, and `/api/inboxes` to create the objects that tie custom domains to inboxes.
+1. **Auth** – Users log in via `/api/auth/login`. Credentials are checked, and a session is established.
+2. **Domain & email provisioning** – Admins can provision domains and emails for themselves or other users. Regular users can view their assigned resources.
 3. **Outbound mail** – `/api/messages` accepts message payloads from the UI. Each request is relayed through Brevo SMTP (`sendBrevoMail`) and persisted to MongoDB (including attachments uploaded to Catbox).
 4. **Inbound mail** – Cloudflare Email Routing posts base64-encoded RFC822 messages to `/api/webhooks/cloudflare`. The backend parses, validates, stores content, and pushes attachment metadata (again via Catbox).
 5. **Frontend consumption** – The UI polls `/api/messages`, `/api/messages/:id`, `/api/inboxes`, etc., to render the mailbox experience.
@@ -24,7 +24,7 @@ The Free-mail backend is an Express + TypeScript application that exposes a sess
 
 | Collection | Purpose | Key Fields |
 | --- | --- | --- |
-| `users` | Admin account plus any future multi-user support | `id`, `email`, `display_name`, `password_hash` (if migrated), timestamps |
+| `users` | Admin account plus any future multi-user support | `id`, `email`, `display_name`, `password_hash`, `role`, `personal_email`, `invite_token`, timestamps |
 | `domains` | Custom domains owned by the user | `id`, `domain`, `user_id`, `created_at` |
 | `email_addresses` | Individual email identities tied to domains | `id`, `email`, `domain`, `user_id`, `inbox_id`, timestamps |
 | `inboxes` | Virtual inbox containers scoped to a user | `id`, `email_id`, `user_id`, `name`, timestamps |
@@ -46,5 +46,3 @@ All repository helpers live under `src/repositories` and enforce ownership check
 - The server expects long-lived connections, so deploy it to a container/VM host. Vercel serverless functions are not supported.
 - CORS enforces an allowlist. Configure `FRONTEND_URL` or `CORS_ORIGINS` with comma-separated entries so your teammate’s frontend can issue credentialed requests.
 - Health check (`/health`) returns 200 even if MongoDB is temporarily unavailable, but it includes `database: "disconnected"` so uptime monitors can differentiate.
-
-

@@ -10,6 +10,16 @@ Base URL defaults to `http://localhost:4000`. All routes under `/api/*` require 
 | `POST` | `/api/auth/logout` | Destroy the current session. | _None_ |
 | `GET` | `/api/auth/me` | Return the current user profile. | _None_ |
 
+## Users
+
+ | Method | Path | Description | Body |
+ | --- | --- | --- | --- |
+ | `GET` | `/api/users` | List all users (Admin only). | _None_ |
+ | `POST` | `/api/users` | Create a new user (Admin only). | `{ "username": "handle", "domain_id": "uuid", "personal_email": "recovery@gmail.com", "fullname": "Name", "details": "Bio", "send_invite": true }` |
+ | `PATCH` | `/api/users/:id` | Update user profile (Admin or Self). | `{ "fullname": "New Name", "details": "New Bio", "password": "newpassword" }` |
+ | `POST` | `/api/users/invite/:token` | Set password via invite token (Public). | `{ "password": "newpassword" }` |
+ | `POST` | `/api/users/forgot-password` | Request password reset email (Public). | `{ "email": "user@domain.com" }` |
+
 ## Domains
 
 All routes require authentication.
@@ -75,5 +85,3 @@ If no recipient address matches an existing email record, the webhook returns `{
 | --- | --- | --- |
 | `GET` | `/` | Returns service metadata and links to important routes. |
 | `GET` | `/health` | Always returns `200` with `status: "ok"`. Includes `database: "connected"` or `database: "disconnected"` so monitors can detect DB issues. |
-
-
