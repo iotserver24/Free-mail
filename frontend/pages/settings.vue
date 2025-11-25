@@ -159,7 +159,7 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="flex h-full flex-col overflow-y-auto bg-slate-950/60">
+  <div class="flex h-full w-full flex-col overflow-y-auto bg-slate-950/60">
     <main class="flex-1 p-4 md:p-8">
       <div class="mb-6">
         <div>
@@ -206,7 +206,7 @@ async function handleLogout() {
             </div>
             
             <!-- Details Form -->
-            <div class="flex-1 space-y-4 max-w-md">
+            <div class="flex-1 space-y-4 max-w-2xl">
               <div>
                 <label class="text-xs text-slate-500">Full Name</label>
                 <input
