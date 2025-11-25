@@ -12,6 +12,8 @@ export interface MessageRecord {
   body_html: string | null;
   status: "queued" | "sent" | "failed" | "received";
   is_read: boolean;
+  folder: "inbox" | "sent" | "drafts" | "spam" | "trash";
+  is_starred: boolean;
   created_at: string;
   updated_at: string;
 }

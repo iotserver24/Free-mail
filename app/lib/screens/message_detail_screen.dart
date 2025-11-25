@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -233,6 +235,19 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             onPressed: () => _summarize(context),
             tooltip: 'Summarize',
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              final client = Provider.of<ApiClient>(context, listen: false);
+              client.moveMessageToFolder(
+                  widget.message['id'] as String, 'trash');
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Moved to Bin')),
+              );
+            },
+            tooltip: 'Delete',
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'mark_unread') {
@@ -321,7 +336,10 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                                   : isOutbound
                                       ? 'Replied'
                                       : null,
-                            );
+                            )
+                                .animate()
+                                .fade(duration: 400.ms, delay: (100 * index).ms)
+                                .slideY(begin: 0.1, end: 0);
                           },
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 12),
@@ -788,30 +806,20 @@ class _AttachmentThumbnail extends StatelessWidget {
     if (url.isEmpty) {
       return _placeholder(context);
     }
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       width: double.infinity,
       height: 60,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _placeholder(context),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return Container(
-          height: 60,
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              value: progress.expectedTotalBytes != null
-                  ? progress.cumulativeBytesLoaded /
-                      progress.expectedTotalBytes!
-                  : null,
-            ),
-          ),
-        );
-      },
+      errorWidget: (context, url, error) => _placeholder(context),
+      placeholder: (context, url) => Container(
+        height: 60,
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.5),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
     );
   }
 

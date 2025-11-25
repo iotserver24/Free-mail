@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -140,42 +141,74 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/logo.png',
-                  height: 72,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Free Mail',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(height: 48),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.mail_outline,
+                      size: 64,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
                   ),
-                ),
+                ).animate().fade(duration: 600.ms).scale(delay: 200.ms),
+                const SizedBox(height: 24),
+                Center(
+                  child: Text(
+                    'Welcome Back',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                  ),
+                ).animate().fade(delay: 300.ms).slideY(begin: 0.3, end: 0),
                 const SizedBox(height: 8),
-                Text(
-                  'Self-hosted inbox access',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                Center(
+                  child: Text(
+                    'Sign in to continue to Free Mail',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                   ),
-                ),
+                ).animate().fade(delay: 400.ms).slideY(begin: 0.3, end: 0),
                 const SizedBox(height: 32),
                 _urlVerified
-                    ? _LoginForm(
-                        formKey: _formKey,
-                        emailController: _emailController,
-                        passwordController: _passwordController,
-                        isLoading: _isLoading,
-                        onSubmit: _login,
-                      )
+                    ? Column(
+                        children: [
+                          _LoginForm(
+                            formKey: _formKey,
+                            emailController: _emailController,
+                            passwordController: _passwordController,
+                            isLoading: _isLoading,
+                            onSubmit: _login,
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _urlVerified = false;
+                                _urlStatus = null;
+                              });
+                            },
+                            icon: const Icon(Icons.edit),
+                            label: const Text('Change Backend URL'),
+                          ),
+                        ],
+                      ).animate().fade(delay: 500.ms).slideY(begin: 0.1, end: 0)
                     : _UrlVerificationCard(
                         urlController: _urlController,
                         verifying: _isVerifyingUrl,
                         statusText: _urlStatus,
                         onVerify: _verifyUrl,
                         onChanged: _handleUrlChanged,
-                      ),
+                      )
+                        .animate()
+                        .fade(delay: 500.ms)
+                        .slideY(begin: 0.1, end: 0),
               ],
             ),
           ),

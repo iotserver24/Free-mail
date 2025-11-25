@@ -119,6 +119,8 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     body_html: input.bodyHtml ?? null,
     status: input.status,
     is_read: false,
+    folder: input.direction === "outbound" ? "sent" : "inbox",
+    is_starred: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -139,59 +141,41 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     body_html: message.body_html,
     status: message.status,
     is_read: message.is_read,
+    folder: message.folder as MessageRecord["folder"],
+    is_starred: message.is_starred,
     created_at: message.created_at,
     updated_at: message.updated_at,
   };
 }
 
-export async function listMessages(userId: string, inboxId?: string | null, limit = 25): Promise<MessageRecord[]> {
+export async function listMessages(
+  userId: string,
+  inboxId?: string | null,
+  folder?: string,
+  isStarred?: boolean,
+  limit = 25
+): Promise<MessageRecord[]> {
   const db = await getDb();
   const collection = db.collection("messages");
 
-  const query: { user_id: string; inbox_id?: string | null } = { user_id: userId };
+  const query: any = { user_id: userId };
   if (inboxId !== undefined) {
     query.inbox_id = inboxId;
   }
+  if (folder) {
+    query.folder = folder;
+  }
+  if (isStarred !== undefined) {
+    query.is_starred = isStarred;
+  }
 
   const messages = await collection
-    .find<{
-      id: string;
-      user_id: string;
-      inbox_id: string | null;
-      direction: string;
-      subject: string;
-      sender_email: string | null;
-      recipient_emails: string[];
-      thread_id: string | null;
-      preview_text: string | null;
-      body_plain: string | null;
-      body_html: string | null;
-      status: string;
-      is_read: boolean;
-      created_at: string;
-      updated_at: string;
-    }>(query)
+    .find(query)
     .sort({ created_at: -1 })
     .limit(limit)
     .toArray();
 
-  return messages.map((msg: {
-    id: string;
-    user_id: string;
-    inbox_id: string | null;
-    direction: string;
-    subject: string;
-    sender_email: string | null;
-    recipient_emails: string[];
-    thread_id: string | null;
-    preview_text: string | null;
-    body_plain: string | null;
-    body_html: string | null;
-    status: string;
-    is_read: boolean;
-    created_at: string;
-    updated_at: string;
-  }) => ({
+  return messages.map((msg: any) => ({
     id: msg.id,
     user_id: msg.user_id,
     inbox_id: msg.inbox_id,
@@ -205,6 +189,8 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
     body_html: msg.body_html,
     status: msg.status as MessageRecord["status"],
     is_read: msg.is_read || false,
+    folder: (msg.folder as MessageRecord["folder"]) || (msg.direction === "outbound" ? "sent" : "inbox"),
+    is_starred: msg.is_starred || false,
     created_at: msg.created_at,
     updated_at: msg.updated_at,
   }));
@@ -228,6 +214,8 @@ export async function getMessageById(userId: string, messageId: string): Promise
     body_html: string | null;
     status: string;
     is_read: boolean;
+    folder?: string;
+    is_starred?: boolean;
     created_at: string;
     updated_at: string;
   }>({ id: messageId, user_id: userId });
@@ -250,6 +238,8 @@ export async function getMessageById(userId: string, messageId: string): Promise
     body_html: message.body_html,
     status: message.status as MessageRecord["status"],
     is_read: message.is_read || false,
+    folder: (message.folder as MessageRecord["folder"]) || (message.direction === "outbound" ? "sent" : "inbox"),
+    is_starred: message.is_starred || false,
     created_at: message.created_at,
     updated_at: message.updated_at,
   };
@@ -283,7 +273,7 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
     .sort({ created_at: 1 })
     .toArray();
 
-  return messages.map((msg) => ({
+  return messages.map((msg: any) => ({
     id: msg.id,
     user_id: msg.user_id,
     inbox_id: msg.inbox_id,
@@ -297,6 +287,8 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
     body_html: msg.body_html,
     status: msg.status as MessageRecord["status"],
     is_read: msg.is_read || false,
+    folder: (msg.folder as MessageRecord["folder"]) || (msg.direction === "outbound" ? "sent" : "inbox"),
+    is_starred: msg.is_starred || false,
     created_at: msg.created_at,
     updated_at: msg.updated_at,
   }));
@@ -383,7 +375,8 @@ export async function updateMessage(
 
   const allowedUpdates: Partial<MessageRecord> = {};
   if (updates.is_read !== undefined) allowedUpdates.is_read = updates.is_read;
-  // Add other allowed updates here if needed
+  if (updates.folder !== undefined) allowedUpdates.folder = updates.folder;
+  if (updates.is_starred !== undefined) allowedUpdates.is_starred = updates.is_starred;
 
   if (Object.keys(allowedUpdates).length === 0) {
     return getMessageById(userId, messageId);
@@ -401,23 +394,7 @@ export async function updateMessage(
     return null;
   }
 
-  const message = result as unknown as {
-    id: string;
-    user_id: string;
-    inbox_id: string | null;
-    direction: string;
-    subject: string;
-    sender_email: string | null;
-    recipient_emails: string[];
-    thread_id: string | null;
-    preview_text: string | null;
-    body_plain: string | null;
-    body_html: string | null;
-    status: string;
-    is_read: boolean;
-    created_at: string;
-    updated_at: string;
-  };
+  const message = result as unknown as any;
 
   return {
     id: message.id,
@@ -433,6 +410,8 @@ export async function updateMessage(
     body_html: message.body_html,
     status: message.status as MessageRecord["status"],
     is_read: message.is_read || false,
+    folder: (message.folder as MessageRecord["folder"]) || (message.direction === "outbound" ? "sent" : "inbox"),
+    is_starred: message.is_starred || false,
     created_at: message.created_at,
     updated_at: message.updated_at,
   };

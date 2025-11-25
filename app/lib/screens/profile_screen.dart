@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
 import '../services/catbox_uploader.dart';
+import 'appearance_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -98,6 +100,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     uploading: _uploadingAvatar,
                     uploadProgress: _uploadProgress,
                     onUpload: _uploadingAvatar ? null : _pickAndUploadAvatar,
+                  ),
+                  const SizedBox(height: 24),
+                  ListTile(
+                    leading: const Icon(Icons.palette_outlined),
+                    title: const Text('Appearance'),
+                    subtitle: const Text('Theme & colors'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AppearanceScreen(),
+                        ),
+                      );
+                    },
+                    tileColor: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withOpacity(0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -406,12 +429,13 @@ class _AvatarPreview extends StatelessWidget {
         ? placeholder
         : ClipRRect(
             borderRadius: BorderRadius.circular(44),
-            child: Image.network(
-              imageUrl!,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl!,
               width: 88,
               height: 88,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => placeholder,
+              placeholder: (context, url) => placeholder,
+              errorWidget: (context, url, error) => placeholder,
             ),
           );
 

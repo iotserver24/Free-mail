@@ -295,9 +295,14 @@ class ApiClient extends ChangeNotifier {
     }
   }
 
-  Future<void> loadMessages({bool force = false}) async {
+  Future<void> loadMessages({
+    bool force = false,
+    String? folder,
+    bool? isStarred,
+  }) async {
     if (_dio == null || !_isLoggedIn) return;
-    if (_messages.isNotEmpty && !force) return;
+    if (_messages.isNotEmpty && !force && folder == null && isStarred == null)
+      return;
 
     _loadingMessages = true;
     _mailError = null;
@@ -307,6 +312,8 @@ class ApiClient extends ChangeNotifier {
       final query = <String, dynamic>{
         "limit": 50,
         if (_activeInboxId != null) "inboxId": _activeInboxId,
+        if (folder != null) "folder": folder,
+        if (isStarred != null) "isStarred": isStarred.toString(),
       };
       final response = await _dio!.get("/api/messages", queryParameters: query);
       _messages = _mapList(response.data);
@@ -392,6 +399,48 @@ class ApiClient extends ChangeNotifier {
           _messages[index] = updated;
           notifyListeners();
         }
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> starMessage(String messageId, bool isStarred) async {
+    if (_dio == null) return false;
+    try {
+      final response = await _dio!.patch("/api/messages/$messageId", data: {
+        "is_starred": isStarred,
+      });
+      if (response.statusCode == 200) {
+        // Optimistic update in local list
+        final index = _messages.indexWhere((m) => m['id'] == messageId);
+        if (index != -1) {
+          final updated = Map<String, dynamic>.from(_messages[index]);
+          updated['is_starred'] = isStarred;
+          _messages[index] = updated;
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> moveMessageToFolder(String messageId, String folder) async {
+    if (_dio == null) return false;
+    try {
+      final response = await _dio!.patch("/api/messages/$messageId", data: {
+        "folder": folder,
+      });
+      if (response.statusCode == 200) {
+        // Optimistic update: remove from current list if we are viewing a specific folder
+        // For now, just reload messages to be safe or remove locally
+        _messages.removeWhere((m) => m['id'] == messageId);
+        notifyListeners();
         return true;
       }
       return false;

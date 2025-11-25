@@ -17,8 +17,10 @@ export const messagesRouter: Router = Router();
 messagesRouter.get("/", async (req, res, next) => {
   try {
     const inboxId = req.query.inboxId as string | undefined;
+    const folder = req.query.folder as string | undefined;
+    const isStarred = req.query.isStarred === 'true' ? true : req.query.isStarred === 'false' ? false : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
-    const records = await listMessages(req.userId!, inboxId || undefined, limit);
+    const records = await listMessages(req.userId!, inboxId || undefined, folder, isStarred, limit);
     return res.json(records);
   } catch (error) {
     next(error);
@@ -30,7 +32,9 @@ messagesRouter.get("/inbox/:inboxId", async (req, res, next) => {
   try {
     const { inboxId } = req.params;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
-    const records = await listMessages(req.userId!, inboxId, limit);
+    const folder = req.query.folder as string | undefined;
+    const isStarred = req.query.isStarred === 'true' ? true : req.query.isStarred === 'false' ? false : undefined;
+    const records = await listMessages(req.userId!, inboxId, folder, isStarred, limit);
     return res.json(records);
   } catch (error) {
     next(error);
@@ -68,11 +72,17 @@ messagesRouter.get("/:id", async (req, res, next) => {
 
 messagesRouter.patch("/:id", async (req, res, next) => {
   try {
-    const { is_read } = req.body;
-    const updates: { is_read?: boolean } = {};
+    const { is_read, folder, is_starred } = req.body;
+    const updates: { is_read?: boolean; folder?: any; is_starred?: boolean } = {};
 
     if (typeof is_read === "boolean") {
       updates.is_read = is_read;
+    }
+    if (folder) {
+      updates.folder = folder;
+    }
+    if (typeof is_starred === "boolean") {
+      updates.is_starred = is_starred;
     }
 
     const record = await updateMessage(req.userId!, req.params.id, updates);

@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -17,16 +19,31 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
+  String?
+      _selectedFolder; // null means default (inbox usually, or whatever api defaults to)
+  bool? _isStarredFilter; // true if filtering by starred
 
   @override
   void initState() {
     super.initState();
+    // Defer the initial load until after the first frame to ensure context is available
+    // and to avoid conflicts with the provider's initial state if needed.
+    // However, ApiClient might already be bootstrapping.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshMessages();
       final client = Provider.of<ApiClient>(context, listen: false);
       if (!client.mailBootstrapped && !client.isBootstrappingMail) {
         client.bootstrapMail();
       }
     });
+  }
+
+  Future<void> _refreshMessages() async {
+    await context.read<ApiClient>().loadMessages(
+          force: true,
+          folder: _selectedFolder,
+          isStarred: _isStarredFilter,
+        );
   }
 
   @override
@@ -58,6 +75,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: () => _performBulkAction(client,
                           (id) => client.updateMessageStatus(id, false)),
                       tooltip: 'Mark as Unread',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => _performBulkAction(client,
+                          (id) => client.moveMessageToFolder(id, 'trash')),
+                      tooltip: 'Move to Bin',
                     ),
                   ],
                 )
@@ -131,32 +154,126 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 12),
                         _buildInboxTile(
                           context,
-                          icon: Icons.all_inbox_outlined,
-                          title: 'All mail',
-                          subtitle: 'Everything in one view',
-                          selected: client.activeInboxId == null,
+                          icon: Icons.inbox,
+                          title: 'Inbox',
+                          selected: _selectedFolder == 'inbox' &&
+                              _isStarredFilter != true,
                           onTap: () {
+                            setState(() {
+                              _selectedFolder = 'inbox';
+                              _isStarredFilter = null;
+                            });
                             Navigator.pop(context);
-                            client.setActiveInbox(null);
+                            _refreshMessages();
                           },
                         ),
-                        ...inboxes.map(
-                          (inbox) {
-                            final name = inbox['name'] as String? ?? 'Inbox';
-                            final email = inbox['email'] as String?;
-                            return _buildInboxTile(
-                              context,
-                              icon: Icons.mark_email_read_outlined,
-                              title: name,
-                              subtitle: email,
-                              selected: client.activeInboxId == inbox['id'],
-                              onTap: () {
-                                Navigator.pop(context);
-                                client.setActiveInbox(inbox['id'] as String?);
-                              },
-                            );
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.star_border,
+                          title: 'Starred',
+                          selected: _isStarredFilter == true,
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = null;
+                              _isStarredFilter = true;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
                           },
                         ),
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.send,
+                          title: 'Sent',
+                          selected: _selectedFolder == 'sent',
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = 'sent';
+                              _isStarredFilter = null;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
+                          },
+                        ),
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.drafts,
+                          title: 'Drafts',
+                          selected: _selectedFolder == 'drafts',
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = 'drafts';
+                              _isStarredFilter = null;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
+                          },
+                        ),
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.mail,
+                          title: 'All Mail',
+                          selected: _selectedFolder == null &&
+                              _isStarredFilter != true,
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = null;
+                              _isStarredFilter = null;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
+                          },
+                        ),
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.report,
+                          title: 'Spam',
+                          selected: _selectedFolder == 'spam',
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = 'spam';
+                              _isStarredFilter = null;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
+                          },
+                        ),
+                        _buildInboxTile(
+                          context,
+                          icon: Icons.delete,
+                          title: 'Bin',
+                          selected: _selectedFolder == 'trash',
+                          onTap: () {
+                            setState(() {
+                              _selectedFolder = 'trash';
+                              _isStarredFilter = null;
+                            });
+                            Navigator.pop(context);
+                            _refreshMessages();
+                          },
+                        ),
+                        const Divider(height: 32),
+                        if (inboxes.isNotEmpty) ...[
+                          _DrawerSectionLabel(title: 'Inboxes'),
+                          const SizedBox(height: 8),
+                          ...inboxes.map(
+                            (inbox) {
+                              final name = inbox['name'] as String? ?? 'Inbox';
+                              final email = inbox['email'] as String?;
+                              return _buildInboxTile(
+                                context,
+                                icon: Icons.mark_email_read_outlined,
+                                title: name,
+                                subtitle: email,
+                                selected: client.activeInboxId == inbox['id'],
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  client.setActiveInbox(inbox['id'] as String?);
+                                },
+                              );
+                            },
+                          ),
+                        ],
                         if (inboxes.isEmpty && client.mailBootstrapped) ...[
                           const SizedBox(height: 16),
                           _InlineHintCard(
@@ -276,61 +393,121 @@ class _HomeScreenState extends State<HomeScreen> {
 
           final isSelected = _selectedIds.contains(msg['id']);
 
-          return ListTile(
-            leading: isSelected
-                ? CircleAvatar(
-                    backgroundColor: colors.primary,
-                    foregroundColor: colors.onPrimary,
-                    child: const Icon(Icons.check),
-                  )
-                : CircleAvatar(
-                    backgroundColor: colors.primaryContainer,
-                    foregroundColor: colors.onPrimaryContainer,
-                    child: Text(initial),
-                  ),
-            title: Text(
-              subject,
-              style: TextStyle(
-                fontWeight: (msg['is_read'] as bool? ?? false)
-                    ? FontWeight.normal
-                    : FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          return Dismissible(
+            key: Key(msg['id']),
+            background: Container(
+              color: colors.errorContainer,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              child: Icon(Icons.delete, color: colors.onErrorContainer),
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  sender,
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            direction: DismissDirection.endToStart,
+            onDismissed: (direction) {
+              client.moveMessageToFolder(msg['id'], 'trash');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Moved to Bin'),
+                  action: SnackBarAction(
+                    label: 'Undo',
+                    onPressed: () {
+                      // TODO: Implement undo (move back to previous folder)
+                      // For now, just move back to inbox as a simple undo
+                      client.moveMessageToFolder(msg['id'], 'inbox');
+                    },
+                  ),
                 ),
-                if (preview.isNotEmpty)
+              );
+            },
+            child: ListTile(
+              leading: isSelected
+                  ? CircleAvatar(
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.onPrimary,
+                      child: const Icon(Icons.check),
+                    )
+                  : CircleAvatar(
+                      backgroundColor: colors.primaryContainer,
+                      foregroundColor: colors.onPrimaryContainer,
+                      child: Text(initial),
+                    ),
+              title: Text(
+                subject,
+                style: TextStyle(
+                  fontWeight: (msg['is_read'] as bool? ?? false)
+                      ? FontWeight.normal
+                      : FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    preview,
-                    maxLines: 2,
+                    sender,
+                    style: TextStyle(color: colors.onSurfaceVariant),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-              ],
-            ),
-            isThreeLine: true,
-            selected: isSelected,
-            onLongPress: () => _enterSelectionMode(msg['id'] as String),
-            onTap: () {
-              if (_isSelectionMode) {
-                _toggleSelection(msg['id'] as String);
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MessageDetailScreen(message: msg),
+                  if (preview.isNotEmpty)
+                    Text(
+                      preview,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _formatDate(msg['created_at']),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                );
-              }
-            },
-          );
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () {
+                      final newStatus = !(msg['is_starred'] == true);
+                      context
+                          .read<ApiClient>()
+                          .starMessage(msg['id'], newStatus);
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        (msg['is_starred'] == true)
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: (msg['is_starred'] == true)
+                            ? Colors.amber
+                            : colors.onSurfaceVariant,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              isThreeLine: true,
+              selected: isSelected,
+              onLongPress: () => _enterSelectionMode(msg['id'] as String),
+              onTap: () {
+                if (_isSelectionMode) {
+                  _toggleSelection(msg['id'] as String);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MessageDetailScreen(message: msg),
+                    ),
+                  );
+                }
+              },
+            ),
+          )
+              .animate()
+              .fade(duration: 400.ms, delay: (50 * index).ms)
+              .slideX(begin: 0.1, end: 0);
         },
       ),
     );
@@ -340,6 +517,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return '?';
     return trimmed.substring(0, 1).toUpperCase();
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    final date = DateTime.parse(dateStr).toLocal();
+    final now = DateTime.now();
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '${date.day}/${date.month}';
   }
 
   void _toggleSelection(String id) {
@@ -749,10 +938,11 @@ class _ProfileAvatar extends StatelessWidget {
         color: colorScheme.onPrimaryContainer.withValues(alpha: 0.08),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        imageUrl!,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl!,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
+        placeholder: (context, url) => fallback,
+        errorWidget: (context, url, error) => fallback,
       ),
     );
   }
