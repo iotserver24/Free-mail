@@ -36,6 +36,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadUrl() async {
+    final apiClient = Provider.of<ApiClient>(context, listen: false);
+    if (apiClient.baseUrl != null) {
+      setState(() {
+        _urlController.text = apiClient.baseUrl!;
+        _urlVerified = true;
+        _urlStatus = 'Using configured backend';
+      });
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString('backend_url');
     if (url != null) {

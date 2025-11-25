@@ -16,6 +16,9 @@ on:
           - beta
         default: 'latest'
 
+env:
+  BACKEND_URL: ${{ vars.BACKEND_URL }}
+
 jobs:
   build_android:
     name: Build Android
@@ -87,7 +90,7 @@ jobs:
           echo "" >> android/app/build.gradle.kts
           echo "apply(from = file(\"signing.gradle.kts\"))" >> android/app/build.gradle.kts
       
-      - run: flutter build apk --release
+      - run: flutter build apk --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       
       - uses: actions/upload-artifact@v4
         with:
@@ -108,7 +111,7 @@ jobs:
       
       - run: bash ./set_app_name.sh
       - run: flutter pub get
-      - run: flutter build windows --release
+      - run: flutter build windows --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       
       - name: Install NSIS
         run: |
@@ -144,7 +147,7 @@ jobs:
       - run: chmod +x ./set_app_name.sh
       - run: ./set_app_name.sh
       - run: flutter pub get
-      - run: flutter build linux --release
+      - run: flutter build linux --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       
       - name: Package Zip
         run: |
@@ -200,7 +203,7 @@ jobs:
       - run: chmod +x ./set_app_name.sh
       - run: ./set_app_name.sh
       - run: flutter pub get
-      - run: flutter build ios --release --no-codesign
+      - run: flutter build ios --release --no-codesign --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: free-mail-ios-app
@@ -222,7 +225,7 @@ jobs:
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter config --enable-macos-desktop
-      - run: flutter build macos --release
+      - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       
       - name: Zip App
         run: |
@@ -250,7 +253,7 @@ jobs:
       - run: ./set_app_name.sh
       - run: flutter pub get
       - run: flutter config --enable-macos-desktop
-      - run: flutter build macos --release
+      - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
       
       - name: Zip App
         run: |

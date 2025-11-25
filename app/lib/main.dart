@@ -8,7 +8,8 @@ import 'api/api_client.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final savedUrl = prefs.getString('backend_url');
+  const envUrl = String.fromEnvironment('BACKEND_URL');
+  final savedUrl = envUrl.isNotEmpty ? envUrl : prefs.getString('backend_url');
 
   runApp(
     MultiProvider(
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
       title: 'Free Mail',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple, 
+          seedColor: Colors.deepPurple,
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
@@ -38,12 +39,12 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       home: Consumer<ApiClient>(
         builder: (context, apiClient, child) {
-           // Simple logic: if not logged in (or no base URL), show login.
-           // Ideally we check session validity, but for now let's rely on isLoggedIn state in ApiClient
-           if (apiClient.isLoggedIn) {
-             return const HomeScreen();
-           }
-           return const LoginScreen();
+          // Simple logic: if not logged in (or no base URL), show login.
+          // Ideally we check session validity, but for now let's rely on isLoggedIn state in ApiClient
+          if (apiClient.isLoggedIn) {
+            return const HomeScreen();
+          }
+          return const LoginScreen();
         },
       ),
     );
