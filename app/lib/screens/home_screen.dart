@@ -508,14 +508,46 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                 ],
               ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    _formatDate(msg['created_at']),
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _formatDate(msg['created_at']),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      if (!(msg['is_read'] as bool? ?? false))
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 24,
+                            minHeight: 24,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '1',
+                              style: TextStyle(
+                                color: colors.onPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(width: 8),
                   InkWell(
                     onTap: () {
                       final newStatus = !(msg['is_starred'] == true);
