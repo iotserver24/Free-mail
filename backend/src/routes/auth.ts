@@ -70,6 +70,7 @@ authRouter.post("/login", async (req, res, next) => {
         displayName: user.display_name ?? "User",
         role: user.role,
         avatarUrl: user.avatar_url,
+        personalEmail: user.personal_email,
       },
     });
   } catch (error) {
@@ -114,6 +115,7 @@ authRouter.get("/me", async (req, res, next) => {
         displayName: user.display_name ?? "User",
         role: user.role,
         avatarUrl: user.avatar_url,
+        personalEmail: user.personal_email,
       },
     });
   } catch (error) {

@@ -110,7 +110,7 @@ class ApiClient extends ChangeNotifier {
       if (response.statusCode == 200 &&
           payload is Map &&
           payload["user"] is Map) {
-        _user = Map<String, dynamic>.from(payload["user"] as Map);
+        _user = _normalizeUser(Map<String, dynamic>.from(payload["user"] as Map));
         _isLoggedIn = true;
       } else {
         _user = null;
@@ -519,6 +519,63 @@ class ApiClient extends ChangeNotifier {
       return null;
     }
     return null;
+  }
+
+  Future<bool> updateProfile({
+    String? displayName,
+    String? personalEmail,
+    String? avatarUrl,
+  }) async {
+    if (_dio == null || _user == null) return false;
+
+    final payload = <String, dynamic>{
+      if (displayName != null) 'display_name': displayName,
+      if (personalEmail != null) 'personal_email': personalEmail,
+      if (avatarUrl != null) 'pfp': avatarUrl,
+    }..removeWhere((key, value) => value == null || (value is String && value.isEmpty));
+
+    if (payload.isEmpty) return true;
+
+    try {
+      final response =
+          await _dio!.patch('/api/users/${_user!["id"]}', data: payload);
+      if (response.statusCode == 200) {
+        await _hydrateUser();
+        return true;
+      }
+    } catch (_) {
+      return false;
+    }
+    return false;
+  }
+
+  Map<String, dynamic>? _normalizeUser(Map<String, dynamic>? raw) {
+    if (raw == null) return null;
+    final normalized = Map<String, dynamic>.from(raw);
+
+    void _setDual(String camel, String snake, dynamic value) {
+      if (value == null) return;
+      normalized[camel] = value;
+      normalized[snake] = value;
+    }
+
+    _setDual(
+      "displayName",
+      "display_name",
+      raw["displayName"] ?? raw["display_name"],
+    );
+    _setDual(
+      "avatarUrl",
+      "avatar_url",
+      raw["avatarUrl"] ?? raw["avatar_url"],
+    );
+    _setDual(
+      "personalEmail",
+      "personal_email",
+      raw["personalEmail"] ?? raw["personal_email"],
+    );
+
+    return normalized;
   }
 }
 

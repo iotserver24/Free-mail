@@ -17,7 +17,7 @@ messagesRouter.get("/", async (req, res, next) => {
   try {
     const inboxId = req.query.inboxId as string | undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
-    const records = await listMessages(req.userId!, inboxId || null, limit);
+    const records = await listMessages(req.userId!, inboxId || undefined, limit);
     return res.json(records);
   } catch (error) {
     next(error);
@@ -89,7 +89,7 @@ messagesRouter.post("/", async (req, res, next) => {
         if (!item.url) {
           throw new Error(`Attachment ${item.filename} missing URL`);
         }
-        
+
         // Download file from Catbox URL
         const response = await axios.get<ArrayBuffer>(item.url, { responseType: "arraybuffer" });
         return {

@@ -183,9 +183,25 @@ async function initializeDatabase() {
 
 async function bootstrap() {
   await ensureConnection();
-  const port = process.env.PORT || config.port;
-  app.listen(port, () => {
+  const port = Number(process.env.PORT || config.port);
+  app.listen(port, "0.0.0.0", () => {
+    const os = require("os");
+    const networks = os.networkInterfaces();
+    let ipAddress = "localhost";
+
+    // Find the first non-internal IPv4 address
+    for (const name of Object.keys(networks)) {
+      for (const net of networks[name] || []) {
+        if (net.family === "IPv4" && !net.internal) {
+          ipAddress = net.address;
+          break;
+        }
+      }
+      if (ipAddress !== "localhost") break;
+    }
+
     console.log(`API listening on port ${port}`);
+    console.log(`Local Network URL: http://${ipAddress}:${port}`);
   });
 }
 
