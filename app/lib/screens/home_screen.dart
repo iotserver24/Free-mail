@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: client.isBootstrappingMail && inboxes.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                       children: [
                         _DrawerSectionLabel(
                           title: 'Mailboxes',
@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ? 'Connected to ${Uri.tryParse(client.baseUrl!)?.host ?? client.baseUrl!}'
                               : null,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
                         _buildInboxTile(
                           context,
                           icon: Icons.inbox,
@@ -292,10 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             _refreshMessages();
                           },
                         ),
-                        const Divider(height: 32),
+                        const Divider(height: 16),
                         if (inboxes.isNotEmpty) ...[
                           _DrawerSectionLabel(title: 'Inboxes'),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                           ...inboxes.map(
                             (inbox) {
                               final name = inbox['name'] as String? ?? 'Inbox';
@@ -326,13 +326,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
+                      minimumSize: const Size.fromHeight(42),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -346,10 +346,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: const Icon(Icons.person_outline),
                     label: const Text('Profile & settings'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
+                      minimumSize: const Size.fromHeight(42),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -689,9 +689,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final role = (user?['role'] as String?)?.toUpperCase();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           Navigator.pop(context);
           Navigator.push(
@@ -703,9 +703,9 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(20),
             gradient: LinearGradient(
               colors: [
                 colors.primaryContainer,
@@ -728,24 +728,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 fallbackInitials: initials,
                 colorScheme: colors,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colors.onPrimaryContainer,
                           ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       email,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colors.onPrimaryContainer
                                 .withValues(alpha: 0.8),
                           ),
@@ -753,11 +753,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (role != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 8,
+                          vertical: 2,
                         ),
                         decoration: BoxDecoration(
                           color:
@@ -768,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           role,
                           style: TextStyle(
                             color: colors.onPrimaryContainer,
-                            fontSize: 12,
+                            fontSize: 10,
                             letterSpacing: 0.8,
                             fontWeight: FontWeight.w600,
                           ),
@@ -795,42 +795,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final colors = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 4),
       child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         tileColor: selected
             ? colors.primaryContainer.withValues(alpha: 0.4)
             : colors.surfaceContainerHighest.withValues(alpha: 0.4),
         selectedTileColor: colors.primaryContainer.withValues(alpha: 0.6),
         selectedColor: colors.onPrimaryContainer,
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             color: selected
                 ? colors.primary.withValues(alpha: 0.15)
                 : colors.surfaceVariant.withValues(alpha: 0.4),
           ),
           child: Icon(
             icon,
+            size: 20,
             color: selected ? colors.primary : colors.onSurfaceVariant,
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
         subtitle: subtitle != null
             ? Text(
                 subtitle,
+                style: const TextStyle(fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               )
             : null,
         trailing: selected
-            ? Icon(Icons.check_circle, color: colors.primary)
-            : const Icon(Icons.chevron_right),
+            ? Icon(Icons.check_circle, size: 20, color: colors.primary)
+            : const Icon(Icons.chevron_right, size: 18),
         onTap: onTap,
       ),
     );
