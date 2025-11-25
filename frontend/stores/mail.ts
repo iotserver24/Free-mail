@@ -106,6 +106,10 @@ export const useMailStore = defineStore("mail", {
       } else {
         this.threadMessages = [];
       }
+
+      if (!this.messageDetail.is_read) {
+        this.updateMessageStatus(messageId, true);
+      }
     },
     toggleComposer(open?: boolean, context?: ComposeContext | null) {
       const nextState = typeof open === "boolean" ? open : !this.composerOpen;
@@ -159,6 +163,33 @@ export const useMailStore = defineStore("mail", {
         variant: "success",
       });
       await this.loadMessages();
+    },
+    async updateMessageStatus(messageId: string, isRead: boolean) {
+      const api = useApi();
+      // Optimistic update
+      const message = this.messages.find((m) => m.id === messageId);
+      if (message) {
+        message.is_read = isRead;
+      }
+      if (this.messageDetail?.id === messageId) {
+        this.messageDetail.is_read = isRead;
+      }
+
+      try {
+        await api<MessageRecord>(`/api/messages/${messageId}`, {
+          method: "PATCH",
+          body: { is_read: isRead },
+        });
+      } catch (error) {
+        // Revert on error
+        if (message) {
+          message.is_read = !isRead;
+        }
+        if (this.messageDetail?.id === messageId) {
+          this.messageDetail.is_read = !isRead;
+        }
+        throw error;
+      }
     },
   },
 });

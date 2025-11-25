@@ -177,6 +177,16 @@ function handleForward() {
             </svg>
             Forward
           </button>
+          <button
+            v-if="message?.is_read"
+            class="group flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-2.5 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-blue-400/60 hover:bg-blue-500/10 hover:text-blue-300"
+            @click="mail.updateMessageStatus(message!.id, false)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            Mark unread
+          </button>
         </div>
       </div>
     </div>
@@ -227,6 +237,16 @@ function handleForward() {
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
           </svg>
           Forward
+        </button>
+        <button
+          v-if="message?.is_read"
+          class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-blue-400/60 hover:bg-blue-500/10"
+          @click="mail.updateMessageStatus(message!.id, false)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+          Mark unread
         </button>
       </div>
 

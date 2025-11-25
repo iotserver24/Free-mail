@@ -34,14 +34,19 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
       _loadingThread = true;
       _error = null;
     });
+
+    // Mark as read if unread
+    if (widget.message['is_read'] != true) {
+      client.updateMessageStatus(widget.message['id'] as String, true);
+    }
+
     try {
       if (widget.message['thread_id'] != null) {
         final records =
             await client.fetchThread(widget.message['thread_id'] as String);
         if (!mounted) return;
         setState(() {
-          _threadMessages =
-              records.isNotEmpty ? records : [widget.message];
+          _threadMessages = records.isNotEmpty ? records : [widget.message];
         });
       } else {
         final detail =
@@ -134,8 +139,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     final subject = _ensurePrefix(entry['subject'] as String?, 'Re');
     final timestamp = entry['created_at'] as String?;
     final sender = entry['sender_email'] as String? ?? 'Unknown';
-    final quoted =
-        _quoteBody(_plainBody(entry) ?? '', sender: sender, timestamp: timestamp);
+    final quoted = _quoteBody(_plainBody(entry) ?? '',
+        sender: sender, timestamp: timestamp);
 
     return ComposeContext(
       to: to,
@@ -161,8 +166,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
       'To: ${recipients.isNotEmpty ? recipients : "Undisclosed recipients"}',
       '',
     ];
-    final body =
-        '\n\n${headerLines.join("\n")}${_plainBody(entry) ?? ''}\n\n';
+    final body = '\n\n${headerLines.join("\n")}${_plainBody(entry) ?? ''}\n\n';
 
     return ComposeContext(
       subject: subject,
@@ -192,8 +196,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     return null;
   }
 
-  String _quoteBody(String body,
-      {required String sender, String? timestamp}) {
+  String _quoteBody(String body, {required String sender, String? timestamp}) {
     final formattedDate =
         timestamp != null ? _formatTimestamp(DateTime.tryParse(timestamp)) : '';
     final header = 'On $formattedDate, $sender wrote:\n';
@@ -214,8 +217,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     final subject = widget.message['subject'] as String? ?? '(No Subject)';
     final sender = widget.message['sender_email'] as String? ?? 'Unknown';
     final createdAt = widget.message['created_at'] as String?;
-    final createdDate =
-        createdAt != null ? DateTime.tryParse(createdAt) : null;
+    final createdDate = createdAt != null ? DateTime.tryParse(createdAt) : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -231,6 +233,24 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             onPressed: () => _summarize(context),
             tooltip: 'Summarize',
           ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'mark_unread') {
+                final client = Provider.of<ApiClient>(context, listen: false);
+                client.updateMessageStatus(
+                    widget.message['id'] as String, false);
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'mark_unread',
+                  child: Text('Mark as unread'),
+                ),
+              ];
+            },
+          ),
         ],
       ),
       body: Column(
@@ -243,7 +263,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                     .cast<String>()
                     .join(', ')
                 : widget.message['recipient_emails']?.toString() ?? '—',
-            createdAt: createdDate != null ? _dateFormat.format(createdDate) : null,
+            createdAt:
+                createdDate != null ? _dateFormat.format(createdDate) : null,
           ),
           Expanded(
             child: _loadingThread
@@ -261,7 +282,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                           itemBuilder: (context, index) {
                             final entry = _threadMessages[index];
                             final entryDate = entry['created_at'] != null
-                                ? DateTime.tryParse(entry['created_at'] as String)
+                                ? DateTime.tryParse(
+                                    entry['created_at'] as String)
                                 : null;
                             final direction =
                                 entry['direction'] as String? ?? 'inbound';
@@ -270,27 +292,29 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                                 (entry['recipient_emails'] as List<dynamic>?)
                                         ?.cast<String>() ??
                                     <String>[];
-                            final attachments = (entry['attachments']
-                                        as List<dynamic>?)
-                                    ?.whereType<Map>()
-                                    .map(
-                                      (att) =>
-                                          Map<String, dynamic>.from(att),
-                                    )
-                                    .toList() ??
-                                const <Map<String, dynamic>>[];
+                            final attachments =
+                                (entry['attachments'] as List<dynamic>?)
+                                        ?.whereType<Map>()
+                                        .map(
+                                          (att) =>
+                                              Map<String, dynamic>.from(att),
+                                        )
+                                        .toList() ??
+                                    const <Map<String, dynamic>>[];
                             return _MessageBubble(
                               isOutbound: isOutbound,
-                              sender:
-                                  isOutbound ? 'You' : (entry['sender_email'] as String? ?? 'Unknown'),
+                              sender: isOutbound
+                                  ? 'You'
+                                  : (entry['sender_email'] as String? ??
+                                      'Unknown'),
                               recipients: recipients,
                               timestamp: entryDate != null
                                   ? _dateFormat.format(entryDate)
                                   : null,
                               body: _plainBody(entry) ?? '',
-                              hasHtml: (entry['body_html'] as String?)
-                                      ?.isNotEmpty ==
-                                  true,
+                              hasHtml:
+                                  (entry['body_html'] as String?)?.isNotEmpty ==
+                                      true,
                               attachments: attachments,
                               statusLabel: isOutbound && index == 0
                                   ? 'Latest reply'
@@ -299,7 +323,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
                                       : null,
                             );
                           },
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
                           itemCount: _threadMessages.length,
                         ),
                       ),
@@ -461,9 +486,8 @@ class _MessageBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CircleAvatar(
-                  backgroundColor: isOutbound
-                      ? colors.primary
-                      : colors.secondaryContainer,
+                  backgroundColor:
+                      isOutbound ? colors.primary : colors.secondaryContainer,
                   foregroundColor: isOutbound
                       ? colors.onPrimary
                       : colors.onSecondaryContainer,
@@ -558,20 +582,22 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: attachments.map(
-                          (att) => _AttachmentPreview(
-                            filename: att['filename']?.toString() ?? 'file',
-                            url: att['url']?.toString() ?? '',
-                            sizeBytes: att['size_bytes'] is int
-                                ? att['size_bytes'] as int
-                                : null,
-                            type: att['mimetype']?.toString(),
-                          ),
-                        ).toList(),
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: attachments
+                          .map(
+                            (att) => _AttachmentPreview(
+                              filename: att['filename']?.toString() ?? 'file',
+                              url: att['url']?.toString() ?? '',
+                              sizeBytes: att['size_bytes'] is int
+                                  ? att['size_bytes'] as int
+                                  : null,
+                              type: att['mimetype']?.toString(),
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ],
                 ),
               ),

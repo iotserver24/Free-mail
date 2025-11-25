@@ -54,6 +54,7 @@ export interface MessageRecord {
   body_plain: string | null;
   body_html: string | null;
   status: "sent" | "queued" | "failed" | "received";
+  is_read: boolean;
   created_at: string;
   updated_at: string;
   attachments?: AttachmentRecord[];

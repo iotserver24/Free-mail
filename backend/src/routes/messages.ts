@@ -8,6 +8,7 @@ import {
   getThreadMessages,
   listAttachments,
   listMessages,
+  updateMessage,
 } from "../repositories/messages";
 import { getEmailByAddress } from "../repositories/emails";
 
@@ -60,6 +61,25 @@ messagesRouter.get("/:id", async (req, res, next) => {
     }
     const attachments = await listAttachments(record.id);
     return res.json({ ...record, attachments });
+  } catch (error) {
+    next(error);
+  }
+});
+
+messagesRouter.patch("/:id", async (req, res, next) => {
+  try {
+    const { is_read } = req.body;
+    const updates: { is_read?: boolean } = {};
+
+    if (typeof is_read === "boolean") {
+      updates.is_read = is_read;
+    }
+
+    const record = await updateMessage(req.userId!, req.params.id, updates);
+    if (!record) {
+      return res.status(404).json({ error: "message not found" });
+    }
+    return res.json(record);
   } catch (error) {
     next(error);
   }

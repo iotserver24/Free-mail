@@ -94,33 +94,42 @@ function getAvatarColor(email: string | null | undefined): string {
             ]"
             @click="emit('select', message.id)"
           >
-            <!-- Avatar -->
-            <div 
-              class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-lg"
-              :class="getAvatarColor(message.sender_email || message.recipient_emails?.[0])"
-            >
-              {{ getInitials(getSenderDisplay(message)) }}
-            </div>
+              <div 
+                class="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-lg"
+                :class="getAvatarColor(message.sender_email || message.recipient_emails?.[0])"
+              >
+                {{ getInitials(getSenderDisplay(message)) }}
+                <span v-if="!message.is_read" class="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-slate-900 bg-brand-500"></span>
+              </div>
 
             <!-- Message Content -->
             <div class="flex-1 overflow-hidden">
               <!-- Header Row -->
               <div class="flex items-baseline justify-between gap-2">
                 <p 
-                  class="truncate text-sm font-semibold"
-                  :class="message.id === selectedId ? 'text-white' : 'text-slate-200 group-hover:text-white'"
+                  class="truncate text-sm"
+                  :class="[
+                    message.id === selectedId ? 'text-white font-semibold' : 'group-hover:text-white',
+                    !message.is_read && message.id !== selectedId ? 'text-white font-bold' : 'text-slate-200 font-medium'
+                  ]"
                 >
                   {{ getSenderDisplay(message) }}
                 </p>
-                <span class="flex-shrink-0 text-xs text-slate-500">
+                <span 
+                  class="flex-shrink-0 text-xs"
+                  :class="!message.is_read ? 'text-brand-400 font-medium' : 'text-slate-500'"
+                >
                   {{ formatShortDate(message.created_at) }}
                 </span>
               </div>
 
               <!-- Subject -->
               <p 
-                class="mt-1 truncate text-sm font-medium"
-                :class="message.id === selectedId ? 'text-slate-200' : 'text-slate-400 group-hover:text-slate-300'"
+                class="mt-1 truncate text-sm"
+                :class="[
+                  message.id === selectedId ? 'text-slate-200' : 'group-hover:text-slate-300',
+                  !message.is_read ? 'text-white font-semibold' : 'text-slate-400 font-medium'
+                ]"
               >
                 {{ message.subject || "(No subject)" }}
               </p>

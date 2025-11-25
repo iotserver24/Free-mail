@@ -15,6 +15,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -31,31 +34,58 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<ApiClient>(
       builder: (context, client, child) {
         return Scaffold(
-          appBar: AppBar(
-            title: Text(client.activeInboxTitle),
-            actions: [
-              IconButton(
-                icon: client.isBootstrappingMail
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh),
-                onPressed: client.isBootstrappingMail
-                    ? null
-                    : () {
-                        client.refreshMail();
+          appBar: _isSelectionMode
+              ? AppBar(
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _deselectAll,
+                  ),
+                  title: Text('${_selectedIds.length} selected'),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.select_all),
+                      onPressed: () => _selectAll(client.messages),
+                      tooltip: 'Select All',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.mark_email_read),
+                      onPressed: () => _performBulkAction(
+                          client, (id) => client.updateMessageStatus(id, true)),
+                      tooltip: 'Mark as Read',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.mark_email_unread),
+                      onPressed: () => _performBulkAction(client,
+                          (id) => client.updateMessageStatus(id, false)),
+                      tooltip: 'Mark as Unread',
+                    ),
+                  ],
+                )
+              : AppBar(
+                  title: Text(client.activeInboxTitle),
+                  actions: [
+                    IconButton(
+                      icon: client.isBootstrappingMail
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      onPressed: client.isBootstrappingMail
+                          ? null
+                          : () {
+                              client.refreshMail();
+                            },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () {
+                        // TODO: implement search/filter
                       },
-              ),
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  // TODO: implement search/filter
-                },
-              ),
-            ],
-          ),
+                    ),
+                  ],
+                ),
           drawer: _buildDrawer(context, client),
           body: _buildBody(context, client),
           floatingActionButton: client.mailBootstrapped
@@ -239,21 +269,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? (msg['sender_email'] as String)
                   : 'Unknown';
           final initial = _initial(sender);
-          final subject =
-              (msg['subject'] as String?)?.trim().isNotEmpty == true
-                  ? msg['subject'] as String
-                  : '(No Subject)';
+          final subject = (msg['subject'] as String?)?.trim().isNotEmpty == true
+              ? msg['subject'] as String
+              : '(No Subject)';
           final preview = msg['preview_text'] as String? ?? '';
 
+          final isSelected = _selectedIds.contains(msg['id']);
+
           return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: colors.primaryContainer,
-              foregroundColor: colors.onPrimaryContainer,
-              child: Text(initial),
-            ),
+            leading: isSelected
+                ? CircleAvatar(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                    child: const Icon(Icons.check),
+                  )
+                : CircleAvatar(
+                    backgroundColor: colors.primaryContainer,
+                    foregroundColor: colors.onPrimaryContainer,
+                    child: Text(initial),
+                  ),
             title: Text(
               subject,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: (msg['is_read'] as bool? ?? false)
+                    ? FontWeight.normal
+                    : FontWeight.bold,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -275,13 +316,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             isThreeLine: true,
+            selected: isSelected,
+            onLongPress: () => _enterSelectionMode(msg['id'] as String),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MessageDetailScreen(message: msg),
-                ),
-              );
+              if (_isSelectionMode) {
+                _toggleSelection(msg['id'] as String);
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MessageDetailScreen(message: msg),
+                  ),
+                );
+              }
             },
           );
         },
@@ -295,6 +342,64 @@ class _HomeScreenState extends State<HomeScreen> {
     return trimmed.substring(0, 1).toUpperCase();
   }
 
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedIds.add(id);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _enterSelectionMode(String id) {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedIds.add(id);
+    });
+  }
+
+  void _selectAll(List<Map<String, dynamic>> messages) {
+    setState(() {
+      _selectedIds.clear();
+      _selectedIds.addAll(messages.map((m) => m['id'] as String));
+    });
+  }
+
+  void _deselectAll() {
+    setState(() {
+      _selectedIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  Future<void> _performBulkAction(
+      ApiClient client, Future<bool> Function(String) action) async {
+    final ids = _selectedIds.toList();
+    _deselectAll(); // Exit mode immediately for better UX
+
+    int successCount = 0;
+    // Process in parallel
+    await Future.wait(ids.map((id) async {
+      if (await action(id)) {
+        successCount++;
+      }
+    }));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Updated $successCount messages'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Widget _buildDrawerHeader(BuildContext context, ApiClient client) {
     final user = client.user;
     final colors = Theme.of(context).colorScheme;
@@ -302,8 +407,9 @@ class _HomeScreenState extends State<HomeScreen> {
         (user?['name'] as String?) ??
         (user?['username'] as String?) ??
         'Admin';
-    final email =
-        (user?['email'] as String?) ?? (user?['username'] as String?) ?? 'admin';
+    final email = (user?['email'] as String?) ??
+        (user?['username'] as String?) ??
+        'admin';
     final avatarRaw =
         (user?['avatarUrl'] as String?) ?? (user?['avatar_url'] as String?);
     final avatarUrl = _resolveAvatarUrl(client.baseUrl, avatarRaw);
@@ -327,80 +433,81 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          gradient: LinearGradient(
-            colors: [
-              colors.primaryContainer,
-              colors.primaryContainer.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              colors: [
+                colors.primaryContainer,
+                colors.primaryContainer.withValues(alpha: 0.75),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _ProfileAvatar(
-              imageUrl: avatarUrl,
-              fallbackInitials: initials,
-              colorScheme: colors,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colors.onPrimaryContainer,
-                        ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    email,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              colors.onPrimaryContainer.withValues(alpha: 0.8),
-                        ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (role != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.onPrimaryContainer.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        role,
-                        style: TextStyle(
-                          color: colors.onPrimaryContainer,
-                          fontSize: 12,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ProfileAvatar(
+                imageUrl: avatarUrl,
+                fallbackInitials: initials,
+                colorScheme: colors,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.onPrimaryContainer,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colors.onPrimaryContainer
+                                .withValues(alpha: 0.8),
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (role != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              colors.onPrimaryContainer.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          role,
+                          style: TextStyle(
+                            color: colors.onPrimaryContainer,
+                            fontSize: 12,
+                            letterSpacing: 0.8,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -494,7 +601,8 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: () => onRetry(), child: const Text('Retry')),
+            FilledButton(
+                onPressed: () => onRetry(), child: const Text('Retry')),
           ],
         ),
       ),

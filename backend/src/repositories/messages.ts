@@ -118,6 +118,7 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     body_plain: input.bodyPlain ?? null,
     body_html: input.bodyHtml ?? null,
     status: input.status,
+    is_read: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -137,6 +138,7 @@ export async function createMessage(input: CreateMessageInput): Promise<MessageR
     body_plain: message.body_plain,
     body_html: message.body_html,
     status: message.status,
+    is_read: message.is_read,
     created_at: message.created_at,
     updated_at: message.updated_at,
   };
@@ -165,6 +167,7 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
       body_plain: string | null;
       body_html: string | null;
       status: string;
+      is_read: boolean;
       created_at: string;
       updated_at: string;
     }>(query)
@@ -185,6 +188,7 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
     body_plain: string | null;
     body_html: string | null;
     status: string;
+    is_read: boolean;
     created_at: string;
     updated_at: string;
   }) => ({
@@ -200,6 +204,7 @@ export async function listMessages(userId: string, inboxId?: string | null, limi
     body_plain: msg.body_plain,
     body_html: msg.body_html,
     status: msg.status as MessageRecord["status"],
+    is_read: msg.is_read || false,
     created_at: msg.created_at,
     updated_at: msg.updated_at,
   }));
@@ -222,6 +227,7 @@ export async function getMessageById(userId: string, messageId: string): Promise
     body_plain: string | null;
     body_html: string | null;
     status: string;
+    is_read: boolean;
     created_at: string;
     updated_at: string;
   }>({ id: messageId, user_id: userId });
@@ -243,6 +249,7 @@ export async function getMessageById(userId: string, messageId: string): Promise
     body_plain: message.body_plain,
     body_html: message.body_html,
     status: message.status as MessageRecord["status"],
+    is_read: message.is_read || false,
     created_at: message.created_at,
     updated_at: message.updated_at,
   };
@@ -266,6 +273,7 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
       body_plain: string | null;
       body_html: string | null;
       status: string;
+      is_read: boolean;
       created_at: string;
       updated_at: string;
     }>({
@@ -288,6 +296,7 @@ export async function getThreadMessages(userId: string, threadId: string): Promi
     body_plain: msg.body_plain,
     body_html: msg.body_html,
     status: msg.status as MessageRecord["status"],
+    is_read: msg.is_read || false,
     created_at: msg.created_at,
     updated_at: msg.updated_at,
   }));
@@ -362,4 +371,69 @@ export async function listAttachments(messageId: string): Promise<AttachmentReco
     url: att.url,
     created_at: att.created_at,
   }));
+}
+
+export async function updateMessage(
+  userId: string,
+  messageId: string,
+  updates: Partial<MessageRecord>
+): Promise<MessageRecord | null> {
+  const db = await getDb();
+  const collection = db.collection("messages");
+
+  const allowedUpdates: Partial<MessageRecord> = {};
+  if (updates.is_read !== undefined) allowedUpdates.is_read = updates.is_read;
+  // Add other allowed updates here if needed
+
+  if (Object.keys(allowedUpdates).length === 0) {
+    return getMessageById(userId, messageId);
+  }
+
+  allowedUpdates.updated_at = new Date().toISOString();
+
+  const result = await collection.findOneAndUpdate(
+    { id: messageId, user_id: userId },
+    { $set: allowedUpdates },
+    { returnDocument: "after" }
+  );
+
+  if (!result) {
+    return null;
+  }
+
+  const message = result as unknown as {
+    id: string;
+    user_id: string;
+    inbox_id: string | null;
+    direction: string;
+    subject: string;
+    sender_email: string | null;
+    recipient_emails: string[];
+    thread_id: string | null;
+    preview_text: string | null;
+    body_plain: string | null;
+    body_html: string | null;
+    status: string;
+    is_read: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+
+  return {
+    id: message.id,
+    user_id: message.user_id,
+    inbox_id: message.inbox_id,
+    direction: message.direction as MessageRecord["direction"],
+    subject: message.subject,
+    sender_email: message.sender_email,
+    recipient_emails: message.recipient_emails,
+    thread_id: message.thread_id,
+    preview_text: message.preview_text,
+    body_plain: message.body_plain,
+    body_html: message.body_html,
+    status: message.status as MessageRecord["status"],
+    is_read: message.is_read || false,
+    created_at: message.created_at,
+    updated_at: message.updated_at,
+  };
 }

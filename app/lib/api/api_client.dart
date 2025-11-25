@@ -5,20 +5,20 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient extends ChangeNotifier {
   ApiClient({String? baseUrl}) {
     if (baseUrl != null && baseUrl.isNotEmpty) {
       _baseUrl = _normalizeBaseUrl(baseUrl);
-      _initDio();
-      _hydrateExistingSession();
+      _init();
     }
   }
 
   Dio? _dio;
   String? _baseUrl;
-  final CookieJar _cookieJar = CookieJar();
+  PersistCookieJar? _cookieJar;
 
   bool _isLoggedIn = false;
   bool _mailBootstrapped = false;
@@ -78,8 +78,28 @@ class ApiClient extends ChangeNotifier {
     return match["email"] as String?;
   }
 
-  void _initDio() {
+  Future<void> _init() async {
+    await _initDio();
+    await _hydrateExistingSession();
+  }
+
+  Future<void> _initDio() async {
     if (_baseUrl == null) return;
+
+    if (_cookieJar == null) {
+      try {
+        final appDocDir = await getApplicationDocumentsDirectory();
+        final cookiePath = "${appDocDir.path}/.cookies/";
+        _cookieJar = PersistCookieJar(
+          storage: FileStorage(cookiePath),
+        );
+      } catch (e) {
+        // Fallback to memory cookie jar if file storage fails
+        _cookieJar =
+            null; // Will use default memory jar logic if needed, or fail
+      }
+    }
+
     final options = BaseOptions(
       baseUrl: _baseUrl!,
       connectTimeout: const Duration(seconds: 15),
@@ -88,17 +108,22 @@ class ApiClient extends ChangeNotifier {
       validateStatus: (status) => status != null && status < 500,
     );
     _dio = Dio(options);
-    _dio!.interceptors.add(CookieManager(_cookieJar));
+    if (_cookieJar != null) {
+      _dio!.interceptors.add(CookieManager(_cookieJar!));
+    }
   }
 
   Future<void> _hydrateExistingSession() async {
     try {
+      if (_cookieJar != null && _baseUrl != null) {
+        await _cookieJar!.loadForRequest(Uri.parse(_baseUrl!));
+      }
       await _hydrateUser();
       if (_isLoggedIn) {
         await bootstrapMail();
       }
     } catch (_) {
-      // Silent failure, user will be prompted to login again.
+      // Silent failure
     }
   }
 
@@ -110,7 +135,8 @@ class ApiClient extends ChangeNotifier {
       if (response.statusCode == 200 &&
           payload is Map &&
           payload["user"] is Map) {
-        _user = _normalizeUser(Map<String, dynamic>.from(payload["user"] as Map));
+        _user =
+            _normalizeUser(Map<String, dynamic>.from(payload["user"] as Map));
         _isLoggedIn = true;
       } else {
         _user = null;
@@ -168,7 +194,7 @@ class ApiClient extends ChangeNotifier {
       final response = await tempDio.get("/api/status");
       if (response.statusCode == 200) {
         _baseUrl = normalizedUrl;
-        _initDio();
+        await _initDio();
         return normalizedUrl;
       }
     } catch (_) {
@@ -183,7 +209,7 @@ class ApiClient extends ChangeNotifier {
     } catch (_) {
       // Ignore logout failures because we'll drop local session regardless.
     } finally {
-      await _cookieJar.deleteAll();
+      await _cookieJar?.deleteAll();
       _resetMailState();
       _isLoggedIn = false;
       _user = null;
@@ -346,6 +372,29 @@ class ApiClient extends ChangeNotifier {
         unawaited(loadMessages(force: true));
       }
       return success;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updateMessageStatus(String messageId, bool isRead) async {
+    if (_dio == null) return false;
+    try {
+      final response = await _dio!.patch("/api/messages/$messageId", data: {
+        "is_read": isRead,
+      });
+      if (response.statusCode == 200) {
+        // Optimistic update in local list
+        final index = _messages.indexWhere((m) => m['id'] == messageId);
+        if (index != -1) {
+          final updated = Map<String, dynamic>.from(_messages[index]);
+          updated['is_read'] = isRead;
+          _messages[index] = updated;
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
     } catch (_) {
       return false;
     }
@@ -532,7 +581,8 @@ class ApiClient extends ChangeNotifier {
       if (displayName != null) 'display_name': displayName,
       if (personalEmail != null) 'personal_email': personalEmail,
       if (avatarUrl != null) 'pfp': avatarUrl,
-    }..removeWhere((key, value) => value == null || (value is String && value.isEmpty));
+    }..removeWhere(
+        (key, value) => value == null || (value is String && value.isEmpty));
 
     if (payload.isEmpty) return true;
 
