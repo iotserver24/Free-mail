@@ -8,12 +8,22 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/notification_service.dart';
+
 class ApiClient extends ChangeNotifier {
   ApiClient({String? baseUrl}) {
     if (baseUrl != null && baseUrl.isNotEmpty) {
       _baseUrl = _normalizeBaseUrl(baseUrl);
       _init();
     }
+    // Initialize notification service
+    Future.microtask(() async {
+      try {
+        await NotificationService.initialize();
+      } catch (_) {
+        // Ignore initialization errors
+      }
+    });
   }
 
   Dio? _dio;
@@ -32,6 +42,15 @@ class ApiClient extends ChangeNotifier {
   List<Map<String, dynamic>> _inboxes = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _messages = <Map<String, dynamic>>[];
   String? _activeInboxId;
+  String? _currentFolder;
+  bool? _currentIsStarred;
+  Timer? _pollingTimer;
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
 
   bool get isLoggedIn => _isLoggedIn;
   String? get baseUrl => _baseUrl;
@@ -204,6 +223,7 @@ class ApiClient extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    stopPolling();
     try {
       await _dio?.post("/api/auth/logout");
     } catch (_) {
@@ -301,8 +321,13 @@ class ApiClient extends ChangeNotifier {
     bool? isStarred,
   }) async {
     if (_dio == null || !_isLoggedIn) return;
-    if (_messages.isNotEmpty && !force && folder == null && isStarred == null)
+
+    _currentFolder = folder;
+    _currentIsStarred = isStarred;
+
+    if (_messages.isNotEmpty && !force && folder == null && isStarred == null) {
       return;
+    }
 
     _loadingMessages = true;
     _mailError = null;
@@ -317,7 +342,21 @@ class ApiClient extends ChangeNotifier {
       };
       final response = await _dio!.get("/api/messages", queryParameters: query);
       _messages = _mapList(response.data);
+
+      if (_messages.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'last_known_message_id', _messages.first['id'].toString());
+      }
+
+      if (_pollingTimer == null || !_pollingTimer!.isActive) {
+        startPolling();
+      }
     } catch (_) {
+      // Start polling if not already started
+      if (_pollingTimer == null || !_pollingTimer!.isActive) {
+        startPolling();
+      }
       _mailError = "Unable to load messages";
       _messages = <Map<String, dynamic>>[];
     } finally {
@@ -652,29 +691,103 @@ class ApiClient extends ChangeNotifier {
     if (raw == null) return null;
     final normalized = Map<String, dynamic>.from(raw);
 
-    void _setDual(String camel, String snake, dynamic value) {
+    void setDual(String camel, String snake, dynamic value) {
       if (value == null) return;
       normalized[camel] = value;
       normalized[snake] = value;
     }
 
-    _setDual(
+    setDual(
       "displayName",
       "display_name",
       raw["displayName"] ?? raw["display_name"],
     );
-    _setDual(
+    setDual(
       "avatarUrl",
       "avatar_url",
       raw["avatarUrl"] ?? raw["avatar_url"],
     );
-    _setDual(
+    setDual(
       "personalEmail",
       "personal_email",
       raw["personalEmail"] ?? raw["personal_email"],
     );
 
     return normalized;
+  }
+
+  void startPolling() {
+    _pollingTimer?.cancel();
+    // Poll every 10 seconds
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      pollMessages();
+    });
+  }
+
+  void stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+  Future<void> pollMessages() async {
+    if (_dio == null || !_isLoggedIn) return;
+
+    try {
+      final query = <String, dynamic>{
+        "limit": 50,
+        if (_activeInboxId != null) "inboxId": _activeInboxId,
+        if (_currentFolder != null) "folder": _currentFolder,
+        if (_currentIsStarred != null)
+          "isStarred": _currentIsStarred.toString(),
+      };
+
+      final response = await _dio!.get("/api/messages", queryParameters: query);
+      final newMessages = _mapList(response.data);
+
+      // Check for new emails
+      if (newMessages.isNotEmpty && _messages.isNotEmpty) {
+        // Find all new messages (those that don't exist in current list)
+        final currentIds = _messages.map((m) => m['id']).toSet();
+        final newEmailsList =
+            newMessages.where((m) => !currentIds.contains(m['id'])).toList();
+
+        // Show notification for each new email
+        for (final newEmail in newEmailsList) {
+          final subject = newEmail['subject'] ?? 'No Subject';
+          final from = newEmail['from'] ?? 'Unknown Sender';
+          final messageId = newEmail['id']?.toString() ?? '';
+
+          try {
+            await NotificationService.showNotification(
+              id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              title: 'New Email from $from',
+              body: subject,
+              payload: messageId,
+            );
+          } catch (_) {
+            // Ignore notification errors
+          }
+        }
+      }
+
+      bool changed = false;
+      if (newMessages.length != _messages.length) {
+        changed = true;
+      } else if (newMessages.isNotEmpty && _messages.isNotEmpty) {
+        if (newMessages.first['id'] != _messages.first['id']) {
+          changed = true;
+        }
+      } else if (newMessages.isNotEmpty && _messages.isEmpty) {
+        changed = true;
+      }
+
+      if (changed) {
+        _messages = newMessages;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Silent error
+    }
   }
 }
 

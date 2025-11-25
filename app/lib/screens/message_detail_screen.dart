@@ -231,23 +231,41 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             tooltip: 'Reload thread',
           ),
           IconButton(
-            icon: const Icon(Icons.summarize),
+            icon: ImageIcon(
+              const AssetImage('assets/summary-logo.webp'),
+              size: 24,
+            ),
             onPressed: () => _summarize(context),
             tooltip: 'Summarize',
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () {
-              final client = Provider.of<ApiClient>(context, listen: false);
-              client.moveMessageToFolder(
-                  widget.message['id'] as String, 'trash');
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Moved to Bin')),
-              );
-            },
-            tooltip: 'Delete',
-          ),
+          if (widget.message['folder'] == 'trash')
+            IconButton(
+              icon: const Icon(Icons.restore_from_trash),
+              onPressed: () {
+                final client = Provider.of<ApiClient>(context, listen: false);
+                client.moveMessageToFolder(
+                    widget.message['id'] as String, 'inbox');
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Restored to Inbox')),
+                );
+              },
+              tooltip: 'Restore',
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () {
+                final client = Provider.of<ApiClient>(context, listen: false);
+                client.moveMessageToFolder(
+                    widget.message['id'] as String, 'trash');
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Moved to Bin')),
+                );
+              },
+              tooltip: 'Delete',
+            ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'mark_unread') {

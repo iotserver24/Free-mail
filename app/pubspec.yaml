@@ -23,6 +23,8 @@ dependencies:
   flex_color_scheme: ^8.3.1
   flutter_animate: ^4.5.2
   cached_network_image: ^3.4.1
+  flutter_local_notifications: ^19.5.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +36,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/summary-logo.webp
 
 flutter_launcher_icons:
   image_path: assets/logo.png

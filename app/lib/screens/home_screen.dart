@@ -4,10 +4,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../services/notification_service.dart';
 import 'compose_screen.dart';
 import 'domains_screen.dart';
 import 'message_detail_screen.dart';
 import 'profile_screen.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,10 +24,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String?
       _selectedFolder; // null means default (inbox usually, or whatever api defaults to)
   bool? _isStarredFilter; // true if filtering by starred
+  StreamSubscription<String>? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
+    // Listen to notification taps
+    _notificationSubscription =
+        NotificationService.notificationTapStream.listen((messageId) {
+      _handleNotificationTap(messageId);
+    });
+
     // Defer the initial load until after the first frame to ensure context is available
     // and to avoid conflicts with the provider's initial state if needed.
     // However, ApiClient might already be bootstrapping.
@@ -36,6 +45,29 @@ class _HomeScreenState extends State<HomeScreen> {
         client.bootstrapMail();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _handleNotificationTap(String messageId) {
+    // Find the message in the current list
+    final client = Provider.of<ApiClient>(context, listen: false);
+    final message = client.messages.firstWhere(
+      (m) => m['id'].toString() == messageId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (message.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MessageDetailScreen(message: message),
+        ),
+      );
+    }
   }
 
   Future<void> _refreshMessages() async {
@@ -76,12 +108,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           (id) => client.updateMessageStatus(id, false)),
                       tooltip: 'Mark as Unread',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () => _performBulkAction(client,
-                          (id) => client.moveMessageToFolder(id, 'trash')),
-                      tooltip: 'Move to Bin',
-                    ),
+                    if (_selectedFolder == 'trash')
+                      IconButton(
+                        icon: const Icon(Icons.restore_from_trash),
+                        onPressed: () => _performBulkAction(client,
+                            (id) => client.moveMessageToFolder(id, 'inbox')),
+                        tooltip: 'Restore',
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _performBulkAction(client,
+                            (id) => client.moveMessageToFolder(id, 'trash')),
+                        tooltip: 'Move to Bin',
+                      ),
                   ],
                 )
               : AppBar(
@@ -393,30 +433,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
           final isSelected = _selectedIds.contains(msg['id']);
 
+          final isTrash = _selectedFolder == 'trash';
           return Dismissible(
             key: Key(msg['id']),
             background: Container(
-              color: colors.errorContainer,
+              color: isTrash ? colors.tertiaryContainer : colors.errorContainer,
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 16),
-              child: Icon(Icons.delete, color: colors.onErrorContainer),
+              child: Icon(
+                isTrash ? Icons.restore_from_trash : Icons.delete,
+                color: isTrash
+                    ? colors.onTertiaryContainer
+                    : colors.onErrorContainer,
+              ),
             ),
             direction: DismissDirection.endToStart,
             onDismissed: (direction) {
-              client.moveMessageToFolder(msg['id'], 'trash');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Moved to Bin'),
-                  action: SnackBarAction(
-                    label: 'Undo',
-                    onPressed: () {
-                      // TODO: Implement undo (move back to previous folder)
-                      // For now, just move back to inbox as a simple undo
-                      client.moveMessageToFolder(msg['id'], 'inbox');
-                    },
+              if (isTrash) {
+                client.moveMessageToFolder(msg['id'], 'inbox');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Restored to Inbox')),
+                );
+              } else {
+                client.moveMessageToFolder(msg['id'], 'trash');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Moved to Bin'),
+                    action: SnackBarAction(
+                      label: 'Undo',
+                      onPressed: () {
+                        client.moveMessageToFolder(msg['id'], 'inbox');
+                      },
+                    ),
                   ),
-                ),
-              );
+                );
+              }
             },
             child: ListTile(
               leading: isSelected
