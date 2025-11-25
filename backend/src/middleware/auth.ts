@@ -35,4 +35,3 @@ export async function attachUser(req: Request, _res: Response, next: NextFunctio
 
   next();
 }
-

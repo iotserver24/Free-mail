@@ -2,6 +2,7 @@ import express, { Express } from "express";
 import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
+import MongoStore from "connect-mongo";
 import { config } from "./config";
 import { ensureConnection, closeConnection } from "./db";
 import { attachUser, requireAuth } from "./middleware/auth";
@@ -47,7 +48,8 @@ try {
   app.use(cors(corsOptions));
 
   // Register uploads route BEFORE express.json() to prevent JSON parsing of multipart data
-  app.use("/api/uploads", requireAuth, uploadsRouter);
+  // MOVED: to after session middleware to ensure auth works
+  // app.use("/api/uploads", requireAuth, uploadsRouter);
 
   app.use(express.json({ limit: "25mb" })); // Increased for attachment URLs
   app.use(morgan("dev"));
@@ -57,11 +59,17 @@ try {
     console.warn("WARNING: SESSION_SECRET not set in Vercel environment variables!");
   }
 
+  // ...
+
   app.use(
     session({
       secret: sessionSecret ?? "change-me-in-production",
       resave: false,
       saveUninitialized: false,
+      store: MongoStore.create({
+        mongoUrl: config.database.url,
+        ttl: 14 * 24 * 60 * 60, // 14 days
+      }),
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
@@ -134,6 +142,7 @@ app.use("/api/emails", requireAuth, emailsRouter);
 app.use("/api/inboxes", requireAuth, inboxesRouter);
 app.use("/api/messages", requireAuth, messagesRouter);
 app.use("/api/attachments", requireAuth, attachmentsRouter);
+app.use("/api/uploads", requireAuth, uploadsRouter);
 app.use("/api/ai", requireAuth, aiRouter);
 // Webhooks - Cloudflare Worker sends JSON, so use express.json() for that route
 // Other webhook routes can use raw for direct email forwarding

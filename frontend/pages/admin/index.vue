@@ -168,6 +168,7 @@
                     <th class="px-6 py-3">Role</th>
                     <th class="px-6 py-3">Created</th>
                     <th class="px-6 py-3">Status</th>
+                    <th class="px-6 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-700">
@@ -199,6 +200,14 @@
                     <td class="px-6 py-4">
                        <span class="text-xs text-gray-500">Active</span>
                     </td>
+                    <td class="px-6 py-4">
+                      <button 
+                        @click="openEmailModal(user)" 
+                        class="text-blue-400 hover:text-blue-300 text-xs font-medium border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition-colors"
+                      >
+                        Manage Emails
+                      </button>
+                    </td>
                   </tr>
                   <tr v-if="users.length === 0">
                     <td colspan="4" class="px-6 py-8 text-center text-gray-500">
@@ -208,6 +217,76 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email Management Modal -->
+    <div v-if="showEmailModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="showEmailModal = false">
+      <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-2xl overflow-hidden animate-fade-in">
+        <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+          <h3 class="text-xl font-semibold">Manage Emails for {{ selectedUser?.username }}</h3>
+          <button @click="showEmailModal = false" class="text-gray-400 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div class="p-6">
+          <!-- Add New Email -->
+          <div class="bg-gray-700/30 rounded-lg p-4 mb-6 border border-gray-700">
+            <h4 class="text-sm font-medium text-gray-300 mb-3">Add New Email Address</h4>
+            <div class="flex gap-3">
+              <div class="flex-1">
+                <input 
+                  v-model="newEmailForm.username" 
+                  type="text" 
+                  placeholder="username" 
+                  class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div class="w-1/3">
+                <select 
+                  v-model="newEmailForm.domain_id" 
+                  class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-blue-500 outline-none"
+                >
+                  <option v-for="domain in domains" :key="domain.id" :value="domain.id">@{{ domain.domain }}</option>
+                </select>
+              </div>
+              <button 
+                @click="addUserEmail" 
+                :disabled="!newEmailForm.username || addingEmail"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {{ addingEmail ? 'Adding...' : 'Add' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Email List -->
+          <h4 class="text-sm font-medium text-gray-300 mb-3">Existing Emails</h4>
+          <div class="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-gray-800 text-gray-400">
+                <tr>
+                  <th class="px-4 py-2">Email Address</th>
+                  <th class="px-4 py-2">Created</th>
+                  <th class="px-4 py-2">Inbox ID</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-800">
+                <tr v-for="email in userEmails" :key="email.id">
+                  <td class="px-4 py-3 text-white">{{ email.email }}</td>
+                  <td class="px-4 py-3 text-gray-400">{{ new Date(email.created_at).toLocaleDateString() }}</td>
+                  <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ email.inbox_id }}</td>
+                </tr>
+                <tr v-if="userEmails.length === 0">
+                  <td colspan="3" class="px-4 py-8 text-center text-gray-500">No emails found for this user.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -252,6 +331,68 @@ const form = reactive({
   personal_email: '',
   avatar_url: '',
 });
+
+const showEmailModal = ref(false);
+const selectedUser = ref<any>(null);
+const userEmails = ref<any[]>([]);
+const addingEmail = ref(false);
+const newEmailForm = reactive({
+  username: '',
+  domain_id: '',
+});
+
+async function openEmailModal(user: any) {
+  selectedUser.value = user;
+  showEmailModal.value = true;
+  userEmails.value = []; // Clear previous
+  newEmailForm.username = '';
+  
+  if (domains.value.length > 0) {
+    newEmailForm.domain_id = domains.value[0].id;
+  }
+  
+  await fetchUserEmails(user.id);
+}
+
+async function fetchUserEmails(userId: string) {
+  try {
+    const data = await api<any[]>(`/api/emails/admin/${userId}`);
+    userEmails.value = data;
+  } catch (e) {
+    console.error('Failed to fetch emails', e);
+    toasts.push({ title: 'Error', message: 'Failed to fetch emails', variant: 'error' });
+  }
+}
+
+async function addUserEmail() {
+  if (!newEmailForm.username || !newEmailForm.domain_id) return;
+  
+  const domain = domains.value.find(d => d.id === newEmailForm.domain_id);
+  if (!domain) return;
+
+  const email = `${newEmailForm.username}@${domain.domain}`;
+  
+  addingEmail.value = true;
+
+  try {
+    await api('/api/emails/admin', {
+      method: 'POST',
+      body: {
+        userId: selectedUser.value.id,
+        email,
+        domain: domain.domain,
+      }
+    });
+    
+    toasts.push({ title: 'Success', message: 'Email added successfully', variant: 'success' });
+    newEmailForm.username = '';
+    await fetchUserEmails(selectedUser.value.id);
+  } catch (e: any) {
+    toasts.push({ title: 'Error', message: e.data?.error || 'Failed to add email', variant: 'error' });
+  } finally {
+    addingEmail.value = false;
+  }
+}
 
 async function fetchDomains() {
   try {

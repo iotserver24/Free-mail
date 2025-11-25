@@ -22,7 +22,7 @@ emailsRouter.get("/", async (req, res, next) => {
 emailsRouter.post("/", async (req, res, next) => {
   try {
     const { email, domain, inboxName } = req.body;
-    
+
     if (!email || typeof email !== "string" || !email.trim()) {
       return res.status(400).json({ error: "email is required" });
     }
@@ -40,7 +40,7 @@ emailsRouter.post("/", async (req, res, next) => {
     // Create inbox first with a temporary email_id (we'll update it after email creation)
     // We need to modify createInbox to allow empty email_id, or create email first
     // Let's create email first, then inbox, then update email with inbox_id
-    
+
     // Step 1: Create email with temporary inbox_id
     const tempInboxId = require("uuid").v4();
     const emailRecord = await emailsRepo.createEmail({
@@ -63,7 +63,7 @@ emailsRouter.post("/", async (req, res, next) => {
       { id: emailRecord.id },
       { $set: { inbox_id: inbox.id } }
     );
-    
+
     // Return updated email record
     const updatedEmail = await emailsRepo.getEmailById(req.userId!, emailRecord.id);
     return res.status(201).json(updatedEmail);
@@ -82,7 +82,7 @@ emailsRouter.get("/:emailId", async (req, res, next) => {
   try {
     const { emailId } = req.params;
     const email = await emailsRepo.getEmailById(req.userId!, emailId);
-    
+
     if (!email) {
       return res.status(404).json({ error: "email not found" });
     }
@@ -97,7 +97,7 @@ emailsRouter.get("/:emailId", async (req, res, next) => {
 emailsRouter.delete("/:emailId", async (req, res, next) => {
   try {
     const { emailId } = req.params;
-    
+
     // Get email to find inbox_id
     const email = await emailsRepo.getEmailById(req.userId!, emailId);
     if (!email) {
@@ -106,10 +106,10 @@ emailsRouter.delete("/:emailId", async (req, res, next) => {
 
     // Delete inbox associated with this email
     await inboxesRepo.deleteInbox(req.userId!, email.inbox_id);
-    
+
     // Delete email
     const deleted = await emailsRepo.deleteEmail(req.userId!, emailId);
-    
+
     if (!deleted) {
       return res.status(404).json({ error: "email not found" });
     }
@@ -120,3 +120,82 @@ emailsRouter.delete("/:emailId", async (req, res, next) => {
   }
 });
 
+
+// Admin: List emails for a specific user
+emailsRouter.get("/admin/:userId", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
+    const { userId } = req.params;
+    const emails = await emailsRepo.listEmails(userId);
+    return res.json(emails);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Admin: Create a new email address for a specific user
+emailsRouter.post("/admin", async (req, res, next) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "forbidden: admin only" });
+    }
+
+    const { userId, email, domain, inboxName } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ error: "email is required" });
+    }
+
+    if (!domain || typeof domain !== "string" || !domain.trim()) {
+      return res.status(400).json({ error: "domain is required" });
+    }
+
+    // Verify domain exists (Admin can assign any domain, but it must exist in DB)
+    const domainRecord = await domainsRepo.getDomainByDomain(domain);
+    if (!domainRecord) {
+      return res.status(400).json({ error: "domain not found" });
+    }
+
+    // Create inbox first with a temporary email_id
+    const tempInboxId = require("uuid").v4();
+    const emailRecord = await emailsRepo.createEmail({
+      email: email.trim(),
+      domain: domain.trim(),
+      userId: userId,
+      inboxId: tempInboxId,
+    });
+
+    // Create inbox with email_id
+    const inbox = await inboxesRepo.createInbox({
+      emailId: emailRecord.id,
+      userId: userId,
+      name: inboxName || email.trim(),
+    });
+
+    // Update email with correct inbox_id
+    const db = await require("../db").getDb();
+    await db.collection("email_addresses").updateOne(
+      { id: emailRecord.id },
+      { $set: { inbox_id: inbox.id } }
+    );
+
+    const updatedEmail = await emailsRepo.getEmailById(userId, emailRecord.id);
+    return res.status(201).json(updatedEmail);
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes("already exists") || error.message.includes("Invalid")) {
+        return res.status(400).json({ error: error.message });
+      }
+    }
+    next(error);
+  }
+});
