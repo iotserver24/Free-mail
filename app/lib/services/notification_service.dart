@@ -16,13 +16,13 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final DarwinInitializationSettings initializationSettingsDarwin =
+    const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings();
 
-    final LinuxInitializationSettings initializationSettingsLinux =
+    const LinuxInitializationSettings initializationSettingsLinux =
         LinuxInitializationSettings(defaultActionName: 'Open notification');
 
-    final InitializationSettings initializationSettings =
+    const InitializationSettings initializationSettings =
         InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin,
@@ -54,8 +54,19 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    String? sender,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final BigTextStyleInformation bigTextStyleInformation =
+        BigTextStyleInformation(
+      body,
+      htmlFormatBigText: true,
+      contentTitle: title,
+      htmlFormatContentTitle: true,
+      summaryText: sender,
+      htmlFormatSummaryText: true,
+    );
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'new_email_channel',
       'New Emails',
@@ -64,9 +75,33 @@ class NotificationService {
       priority: Priority.high,
       showWhen: true,
       icon: '@mipmap/ic_launcher',
+      styleInformation: bigTextStyleInformation,
+      /* actions: <AndroidNotificationAction>[
+        const AndroidNotificationAction(
+          'archive',
+          'Archive',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+        const AndroidNotificationAction(
+          'mark_read',
+          'Mark as read',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+        const AndroidNotificationAction(
+          'reply',
+          'Reply',
+          inputs: <AndroidNotificationActionInput>[
+            AndroidNotificationActionInput(
+              label: 'Reply',
+            ),
+          ],
+        ),
+      ], */
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
 

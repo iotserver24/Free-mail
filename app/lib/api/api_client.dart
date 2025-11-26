@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/notification_service.dart';
+import '../services/background_service.dart';
+import '../services/desktop_service.dart';
 
 class ApiClient extends ChangeNotifier {
   ApiClient({String? baseUrl}) {
@@ -140,6 +142,8 @@ class ApiClient extends ChangeNotifier {
       await _hydrateUser();
       if (_isLoggedIn) {
         await bootstrapMail();
+        BackgroundService.startService();
+        DesktopService().startBackgroundCheck();
       }
     } catch (_) {
       // Silent failure
@@ -191,6 +195,8 @@ class ApiClient extends ChangeNotifier {
 
         await _hydrateUser();
         await bootstrapMail(force: true);
+        BackgroundService.startService();
+        DesktopService().startBackgroundCheck();
         notifyListeners();
         return true;
       }
@@ -231,6 +237,8 @@ class ApiClient extends ChangeNotifier {
     } finally {
       await _cookieJar?.deleteAll();
       _resetMailState();
+      BackgroundService.stopService();
+      DesktopService().stopBackgroundCheck();
       _isLoggedIn = false;
       _user = null;
       notifyListeners();

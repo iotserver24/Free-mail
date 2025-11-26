@@ -235,8 +235,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             tooltip: 'Reload thread',
           ),
           IconButton(
-            icon: ImageIcon(
-              const AssetImage('assets/summary-logo.webp'),
+            icon: const ImageIcon(
+              AssetImage('assets/summary-logo.webp'),
               size: 24,
             ),
             onPressed: () => _summarize(context),

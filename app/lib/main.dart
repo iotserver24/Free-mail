@@ -6,9 +6,13 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'api/api_client.dart';
 import 'services/theme_service.dart';
+import 'services/background_service.dart';
+import 'services/desktop_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundService.init();
+  await DesktopService().init();
   final prefs = await SharedPreferences.getInstance();
   const envUrl = String.fromEnvironment('BACKEND_URL');
   final savedUrl = envUrl.isNotEmpty ? envUrl : prefs.getString('backend_url');

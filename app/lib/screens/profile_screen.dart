@@ -117,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     tileColor: Theme.of(context)
                         .colorScheme
                         .surfaceContainerHighest
-                        .withOpacity(0.3),
+                        .withValues(alpha: 0.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -197,6 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleSave(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _isSaving = true);
     final client = Provider.of<ApiClient>(context, listen: false);
     final success = await client.updateProfile(
@@ -208,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (!mounted) return;
     setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           success ? 'Profile updated' : 'Failed to save profile',
@@ -228,12 +229,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final file = result.files.single;
     final path = file.path;
     if (path == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to read selected file')),
       );
       return;
     }
     if (file.size > _maxAvatarSizeBytes) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please choose an image under 4MB')),
       );
@@ -257,6 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       );
 
+      if (!mounted) return;
       final client = Provider.of<ApiClient>(context, listen: false);
       final success = await client.updateProfile(avatarUrl: url);
       if (success) {
@@ -451,7 +455,7 @@ class _AvatarPreview extends StatelessWidget {
           if (uploading)
             Container(
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(44),
               ),
               child: Column(

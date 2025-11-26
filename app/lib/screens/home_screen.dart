@@ -301,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Divider(height: 16),
                         if (inboxes.isNotEmpty) ...[
-                          _DrawerSectionLabel(title: 'Inboxes'),
+                          const _DrawerSectionLabel(title: 'Inboxes'),
                           const SizedBox(height: 4),
                           ...inboxes.map(
                             (inbox) {
@@ -323,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                         if (inboxes.isEmpty && client.mailBootstrapped) ...[
                           const SizedBox(height: 16),
-                          _InlineHintCard(
+                          const _InlineHintCard(
                             icon: Icons.add_circle_outline,
                             message:
                                 'No personalized inboxes yet. Ask your admin to assign you one.',
@@ -822,7 +822,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(10),
             color: selected
                 ? colors.primary.withValues(alpha: 0.15)
-                : colors.surfaceVariant.withValues(alpha: 0.4),
+                : colors.surfaceContainerHighest.withValues(alpha: 0.4),
           ),
           child: Icon(
             icon,
