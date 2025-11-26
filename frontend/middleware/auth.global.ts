@@ -1,6 +1,6 @@
 import { useAuthStore } from "~/stores/auth";
 
-const PUBLIC_ROUTES = ["/login", "/"];
+const PUBLIC_ROUTES = ["/login", "/", "/set-password"];
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore();

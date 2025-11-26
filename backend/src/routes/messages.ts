@@ -11,6 +11,7 @@ import {
   updateMessage,
 } from "../repositories/messages";
 import { getEmailByAddress } from "../repositories/emails";
+import { getInboxById } from "../repositories/inboxes";
 
 export const messagesRouter: Router = Router();
 
@@ -20,6 +21,15 @@ messagesRouter.get("/", async (req, res, next) => {
     const folder = req.query.folder as string | undefined;
     const isStarred = req.query.isStarred === 'true' ? true : req.query.isStarred === 'false' ? false : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
+
+    // Verify inbox ownership if provided
+    if (inboxId) {
+      const inbox = await getInboxById(req.userId!, inboxId);
+      if (!inbox) {
+        return res.status(404).json({ error: "inbox not found" });
+      }
+    }
+
     const records = await listMessages(req.userId!, inboxId || undefined, folder, isStarred, limit);
     return res.json(records);
   } catch (error) {
@@ -34,6 +44,13 @@ messagesRouter.get("/inbox/:inboxId", async (req, res, next) => {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 25;
     const folder = req.query.folder as string | undefined;
     const isStarred = req.query.isStarred === 'true' ? true : req.query.isStarred === 'false' ? false : undefined;
+
+    // Verify inbox ownership
+    const inbox = await getInboxById(req.userId!, inboxId);
+    if (!inbox) {
+      return res.status(404).json({ error: "inbox not found" });
+    }
+
     const records = await listMessages(req.userId!, inboxId, folder, isStarred, limit);
     return res.json(records);
   } catch (error) {
