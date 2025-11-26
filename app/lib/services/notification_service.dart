@@ -42,6 +42,19 @@ class NotificationService {
       },
     );
 
+    // Create the channel explicitly for Android
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'new_email_channel', // id
+      'New Emails', // title
+      description: 'Notifications for new emails', // description
+      importance: Importance.max,
+    );
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     // Request permission for Android 13+
     await _notificationsPlugin
         .resolvePlatformSpecificImplementation<
@@ -74,31 +87,8 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
-      icon: 'notification_icon',
+      icon: '@mipmap/ic_launcher',
       styleInformation: bigTextStyleInformation,
-      /* actions: <AndroidNotificationAction>[
-        const AndroidNotificationAction(
-          'archive',
-          'Archive',
-          showsUserInterface: false,
-          cancelNotification: true,
-        ),
-        const AndroidNotificationAction(
-          'mark_read',
-          'Mark as read',
-          showsUserInterface: false,
-          cancelNotification: true,
-        ),
-        const AndroidNotificationAction(
-          'reply',
-          'Reply',
-          inputs: <AndroidNotificationActionInput>[
-            AndroidNotificationActionInput(
-              label: 'Reply',
-            ),
-          ],
-        ),
-      ], */
     );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(

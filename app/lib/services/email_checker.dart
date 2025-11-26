@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notification_service.dart';
@@ -9,8 +10,12 @@ class EmailChecker {
   static Future<void> checkNewEmails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.reload(); // Ensure we have the latest data
       final baseUrl = prefs.getString('backend_url');
-      if (baseUrl == null) return;
+      if (baseUrl == null) {
+        debugPrint("Background check: No base URL found");
+        return;
+      }
 
       final appDocDir = await getApplicationDocumentsDirectory();
       final cookiePath = "${appDocDir.path}/.cookies/";
@@ -31,6 +36,7 @@ class EmailChecker {
         await dio.get("/api/auth/me");
       } catch (e) {
         // Not logged in or error
+        debugPrint("Background check: Not logged in or auth error: $e");
         return;
       }
 
@@ -72,7 +78,7 @@ class EmailChecker {
         }
       }
     } catch (e) {
-      // debugPrint("Background check error: $e");
+      debugPrint("Background check error: $e");
     }
   }
 }
