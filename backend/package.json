@@ -20,6 +20,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-session": "^1.18.2",
+    "firebase-admin": "^13.6.0",
     "form-data": "^4.0.5",
     "mailparser": "^3.9.0",
     "mongodb": "^6.3.0",

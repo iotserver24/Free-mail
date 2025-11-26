@@ -695,6 +695,18 @@ class ApiClient extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> updateFcmToken(String token) async {
+    if (_dio == null || _user == null) return false;
+    try {
+      final response = await _dio!.patch('/api/users/${_user!["id"]}', data: {
+        'fcm_token': token,
+      });
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Map<String, dynamic>? _normalizeUser(Map<String, dynamic>? raw) {
     if (raw == null) return null;
     final normalized = Map<String, dynamic>.from(raw);

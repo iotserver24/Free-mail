@@ -44,7 +44,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!client.mailBootstrapped && !client.isBootstrappingMail) {
         client.bootstrapMail();
       }
+      _syncFcmToken(client);
     });
+  }
+
+  Future<void> _syncFcmToken(ApiClient client) async {
+    try {
+      final token = await NotificationService.getFcmToken();
+      if (token != null) {
+        debugPrint("FCM Token: $token");
+        await client.updateFcmToken(token);
+      }
+
+      // Listen for token refreshes
+      NotificationService.onTokenRefresh.listen((newToken) {
+        debugPrint("FCM Token Refreshed: $newToken");
+        client.updateFcmToken(newToken);
+      });
+    } catch (e) {
+      debugPrint("Failed to sync FCM token: $e");
+    }
   }
 
   @override

@@ -39,6 +39,7 @@ export interface UserRecord {
   invite_token: string | null;
   invite_token_expires: string | null;
   avatar_url: string | null;
+  fcm_token: string | null;
   created_at: string;
 }
 

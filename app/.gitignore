@@ -17,6 +17,8 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.env
+.env.local
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -50,3 +52,5 @@ app.*.map.json
 **/key.properties
 keystore_base64.txt
 android/app/signing.gradle.kts
+google-services.json
+android/app/google-services.json

@@ -190,6 +190,9 @@ usersRouter.patch("/:id", requireAuth, async (req, res, next) => {
 usersRouter.delete("/:id", requireAuth, async (req, res, next) => {
     try {
         const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: "Missing user ID" });
+        }
         const currentUser = (req as any).user;
 
         if (currentUser.role !== "admin") {

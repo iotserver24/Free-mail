@@ -14,6 +14,7 @@ export interface CreateUserInput {
   inviteToken?: string;
   inviteTokenExpires?: string;
   avatarUrl?: string;
+  fcmToken?: string;
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserRecord> {
@@ -33,6 +34,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRecord> {
     invite_token: input.inviteToken ?? null,
     invite_token_expires: input.inviteTokenExpires ?? null,
     avatar_url: input.avatarUrl ?? null,
+    fcm_token: input.fcmToken ?? null,
     created_at: new Date().toISOString(),
   };
 
@@ -49,6 +51,7 @@ export async function createUser(input: CreateUserInput): Promise<UserRecord> {
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
     avatar_url: user.avatar_url,
+    fcm_token: user.fcm_token,
     created_at: user.created_at,
   };
 }
@@ -84,6 +87,7 @@ export async function updateUser(id: string, updates: Partial<UserRecord> & { pa
     invite_token: result.invite_token,
     invite_token_expires: result.invite_token_expires,
     avatar_url: result.avatar_url || null,
+    fcm_token: result.fcm_token || null,
     created_at: result.created_at,
   };
 }
@@ -104,6 +108,7 @@ export async function getUserByEmail(email: string): Promise<(UserRecord & { pas
     invite_token: string | null;
     invite_token_expires: string | null;
     avatar_url: string | null;
+    fcm_token: string | null;
     created_at: string;
   }>({ email });
 
@@ -123,6 +128,7 @@ export async function getUserByEmail(email: string): Promise<(UserRecord & { pas
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
     avatar_url: user.avatar_url,
+    fcm_token: user.fcm_token,
     created_at: user.created_at,
   };
 }
@@ -142,6 +148,7 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
     invite_token: string | null;
     invite_token_expires: string | null;
     avatar_url: string | null;
+    fcm_token: string | null;
     created_at: string;
   }>({ id });
 
@@ -160,6 +167,7 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
     avatar_url: user.avatar_url,
+    fcm_token: user.fcm_token,
     created_at: user.created_at,
   };
 }
@@ -179,6 +187,7 @@ export async function getUserByInviteToken(token: string): Promise<UserRecord | 
     invite_token: string | null;
     invite_token_expires: string | null;
     avatar_url: string | null;
+    fcm_token: string | null;
     created_at: string;
   }>({ invite_token: token });
 
@@ -197,6 +206,7 @@ export async function getUserByInviteToken(token: string): Promise<UserRecord | 
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
     avatar_url: user.avatar_url,
+    fcm_token: user.fcm_token,
     created_at: user.created_at,
   };
 }
@@ -216,6 +226,7 @@ export async function listUsers(): Promise<UserRecord[]> {
     invite_token: string | null;
     invite_token_expires: string | null;
     avatar_url: string | null;
+    fcm_token: string | null;
     created_at: string;
   }>({}).toArray();
 
@@ -230,6 +241,7 @@ export async function listUsers(): Promise<UserRecord[]> {
     invite_token: user.invite_token,
     invite_token_expires: user.invite_token_expires,
     avatar_url: user.avatar_url,
+    fcm_token: user.fcm_token,
     created_at: user.created_at,
   }));
 }

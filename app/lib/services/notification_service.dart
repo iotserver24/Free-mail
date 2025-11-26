@@ -1,18 +1,28 @@
 import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint("Handling a background message: ${message.messageId}");
+  // We don't need to show a notification here because the "notification" payload
+  // in the FCM message automatically triggers a system notification when the app is in background.
+  // However, if we send only "data" messages, we would need to show it manually.
+  // For this implementation, we rely on the backend sending "notification" fields.
+}
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // Stream controller to handle notification taps
   static final StreamController<String> _notificationTapStream =
       StreamController<String>.broadcast();
   static Stream<String> get notificationTapStream =>
       _notificationTapStream.stream;
 
   static Future<void> initialize() async {
+    // 1. Initialize Local Notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -33,7 +43,6 @@ class NotificationService {
     await _notificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse details) {
-        // Handle notification tap
         if (details.payload != null && details.payload!.isNotEmpty) {
           final messageId = details.payload!;
           debugPrint('Notification tapped for message: $messageId');
@@ -42,11 +51,11 @@ class NotificationService {
       },
     );
 
-    // Create the channel explicitly for Android
+    // 2. Create Notification Channel (Android)
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'new_email_channel', // id
-      'New Emails', // title
-      description: 'Notifications for new emails', // description
+      'high_importance_channel', // id matching backend
+      'High Importance Notifications', // title
+      description: 'This channel is used for important notifications.',
       importance: Importance.max,
     );
 
@@ -55,12 +64,56 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    // Request permission for Android 13+
+    // 3. Request Permissions (Local + Firebase)
     await _notificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
+
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+
+    // 4. Setup Background Handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // 5. Foreground Message Handler
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint('Got a message whilst in the foreground!');
+      debugPrint('Message data: ${message.data}');
+
+      if (message.notification != null) {
+        debugPrint(
+            'Message also contained a notification: ${message.notification}');
+        // Show local notification when app is in foreground
+        showNotification(
+          id: message.hashCode,
+          title: message.notification!.title ?? 'New Email',
+          body: message.notification!.body ?? '',
+          payload: message.data['messageId'], // Assuming backend sends this
+        );
+      }
+    });
   }
+
+  static Future<String?> getFcmToken() async {
+    try {
+      return await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      debugPrint("Failed to get FCM token: $e");
+      return null;
+    }
+  }
+
+  static Stream<String> get onTokenRefresh =>
+      FirebaseMessaging.instance.onTokenRefresh;
 
   static Future<void> showNotification({
     required int id,
@@ -81,9 +134,9 @@ class NotificationService {
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'new_email_channel',
-      'New Emails',
-      channelDescription: 'Notifications for new emails',
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,

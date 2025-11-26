@@ -3,8 +3,9 @@ import { simpleParser, type Attachment } from "mailparser";
 import { config } from "../config";
 import { createMessage, addAttachment } from "../repositories/messages";
 import { uploadBufferToCatbox } from "../services/catbox";
-import { getUserByEmail } from "../repositories/users";
+import { getUserByEmail, getUserById } from "../repositories/users";
 import { getEmailByAddress } from "../repositories/emails";
+import { sendNewEmailNotification } from "../services/firebase";
 
 export const webhooksRouter: Router = Router();
 
@@ -12,7 +13,7 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
   try {
     const secretHeader = req.header("x-webhook-secret");
     console.log("Webhook received - Secret header present:", !!secretHeader);
-    
+
     if (config.security.webhookSecret && secretHeader !== config.security.webhookSecret) {
       console.error("Webhook secret mismatch. Expected:", config.security.webhookSecret?.substring(0, 5) + "...", "Got:", secretHeader?.substring(0, 5) + "...");
       return res.status(403).json({ error: "invalid webhook secret" });
@@ -79,7 +80,7 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
     console.log("Parsing email with mailparser...");
     const parsed = await simpleParser(rawEmail);
     console.log("Email parsed successfully. Subject:", parsed.subject);
-    
+
     // Extract sender email address
     let senderEmail: string | null = null;
     if (Array.isArray(parsed.from)) {
@@ -88,7 +89,7 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
     } else if (parsed.from) {
       senderEmail = ((parsed.from as any).address || parsed.from.text?.match(/<([^>]+)>/)?.[1] || parsed.from.text || "").toLowerCase();
     }
-    
+
     // Extract recipient email addresses
     const recipientEmails: string[] = [];
     if (Array.isArray(parsed.to)) {
@@ -100,9 +101,9 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
       const email = (parsed.to as any).address || parsed.to.text?.match(/<([^>]+)>/)?.[1] || parsed.to.text;
       if (email) recipientEmails.push(email.toLowerCase());
     }
-    
+
     console.log("From:", senderEmail, "To:", recipientEmails);
-    
+
     // Validate that at least one recipient email exists in the database
     let validEmailRecord = null;
     for (const recipientEmail of recipientEmails) {
@@ -113,19 +114,19 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
         break;
       }
     }
-    
+
     if (!validEmailRecord) {
       console.error("Rejecting email: No valid recipient found. Recipients:", recipientEmails);
       // Return 200 to prevent Cloudflare from retrying, but log the rejection
-      return res.status(200).json({ 
+      return res.status(200).json({
         message: "Email rejected - recipient not found",
-        rejected: true 
+        rejected: true
       });
     }
-    
+
     const userId = validEmailRecord.user_id;
     const inboxId = validEmailRecord.inbox_id;
-    
+
     const htmlBody = typeof parsed.html === "string" ? parsed.html : null;
     const textBody = parsed.text ?? null;
 
@@ -161,6 +162,21 @@ webhooksRouter.post("/cloudflare", async (req, res, next) => {
           return url;
         })
       );
+    }
+
+    // Trigger FCM Notification
+    try {
+      const user = await getUserById(userId);
+      if (user && user.fcm_token) {
+        console.log("Sending FCM notification to user:", userId);
+        await sendNewEmailNotification(
+          user.fcm_token,
+          `New email from ${senderEmail}`,
+          parsed.subject ?? "No Subject"
+        );
+      }
+    } catch (notifyError) {
+      console.error("Failed to send FCM notification:", notifyError);
     }
 
     console.log("Webhook processed successfully");
