@@ -1,81 +1,105 @@
 import 'dart:async';
 
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'notification_service.dart';
 import 'email_checker.dart';
 
 @pragma('vm:entry-point')
-void startCallback() {
-  FlutterForegroundTask.setTaskHandler(MyTaskHandler());
-}
+Future<bool> onStart(ServiceInstance service) async {
+  // Initialize notifications
+  await NotificationService.initialize();
 
-class MyTaskHandler extends TaskHandler {
-  Timer? _timer;
+  // Create foreground service notification channel and set as foreground
+  if (service is AndroidServiceInstance) {
+    const AndroidNotificationChannel foregroundChannel = AndroidNotificationChannel(
+      'foreground_service_channel',
+      'Background Service',
+      description: 'Keeps the email sync service running',
+      importance: Importance.low,
+      enableVibration: false,
+      playSound: false,
+      showBadge: false,
+    );
 
-  @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    // Initialize notifications
-    await NotificationService.initialize();
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
 
-    // Start the periodic check
-    _timer = Timer.periodic(
-        const Duration(seconds: 10), (_) => EmailChecker.checkNewEmails());
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(foregroundChannel);
 
-    // Perform an immediate check
-    EmailChecker.checkNewEmails();
+    // Set as foreground service manually with notification
+    service.setAsForegroundService();
+
+    service.on('setAsForeground').listen((event) {
+      service.setAsForegroundService();
+    });
+
+    service.on('setAsBackground').listen((event) {
+      service.setAsBackgroundService();
+    });
   }
 
-  @override
-  void onRepeatEvent(DateTime timestamp) {
-    // Not used for simple periodic timer
-  }
+  service.on('stopService').listen((event) {
+    service.stopSelf();
+  });
 
-  @override
-  Future<void> onDestroy(DateTime timestamp, bool isSystemStop) async {
-    _timer?.cancel();
-  }
+  // Start the periodic check every 10 seconds
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
+    if (service is AndroidServiceInstance) {
+      if (await service.isForegroundService()) {
+        // Perform the email check
+        await EmailChecker.checkNewEmails();
+      }
+    } else {
+      // For other platforms or when not foreground
+      await EmailChecker.checkNewEmails();
+    }
+  });
+
+  // Perform an immediate check
+  await EmailChecker.checkNewEmails();
+
+  return true;
 }
 
 class BackgroundService {
   static Future<void> init() async {
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'foreground_service',
-        channelName: 'Foreground Service Notification',
-        channelDescription:
-            'This notification appears when the foreground service is running.',
-        channelImportance: NotificationChannelImportance.MIN,
-        priority: NotificationPriority.MIN,
-        enableVibration: false,
-        playSound: false,
+    final service = FlutterBackgroundService();
+
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: onStart,
+        autoStart: true,
+        isForegroundMode: false,
+        notificationChannelId: 'foreground_service_channel',
+        initialNotificationTitle: 'Free Mail',
+        initialNotificationContent: 'Syncing mail in background',
+        foregroundServiceNotificationId: 888,
+        foregroundServiceTypes: [AndroidForegroundType.dataSync],
       ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(5000),
-        autoRunOnBoot: true,
-        allowWakeLock: true,
-        allowWifiLock: true,
+      iosConfiguration: IosConfiguration(
+        autoStart: true,
+        onForeground: onStart,
+        onBackground: onStart,
       ),
     );
   }
 
   static Future<void> startService() async {
-    if (await FlutterForegroundTask.isRunningService) {
+    final service = FlutterBackgroundService();
+    if (await service.isRunning()) {
       return;
     }
-
-    await FlutterForegroundTask.startService(
-      notificationTitle: 'Syncing mail',
-      notificationText: '',
-      callback: startCallback,
-    );
+    await service.startService();
   }
 
   static Future<void> stopService() async {
-    await FlutterForegroundTask.stopService();
+    final service = FlutterBackgroundService();
+    service.invoke('stopService');
   }
 }
