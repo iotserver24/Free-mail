@@ -74,7 +74,7 @@ class NotificationService {
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/ic_launcher',
+      icon: 'notification_icon',
       styleInformation: bigTextStyleInformation,
       /* actions: <AndroidNotificationAction>[
         const AndroidNotificationAction(
