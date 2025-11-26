@@ -238,3 +238,11 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
   if (!hashedPassword) return false;
   return bcrypt.compare(plainPassword, hashedPassword);
 }
+
+export async function deleteUser(id: string): Promise<boolean> {
+  const db = await getDb();
+  const collection = db.collection("users");
+
+  const result = await collection.deleteOne({ id });
+  return result.deletedCount > 0;
+}

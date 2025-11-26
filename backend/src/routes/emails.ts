@@ -49,8 +49,8 @@ emailsRouter.post("/", async (req, res, next) => {
     // Step 1: Create email with temporary inbox_id
     const tempInboxId = require("uuid").v4();
     const emailRecord = await emailsRepo.createEmail({
-      email: email.trim(),
-      domain: domain.trim(),
+      email: email.trim().toLowerCase(),
+      domain: domain.trim().toLowerCase(),
       userId: req.userId!,
       inboxId: tempInboxId,
     });
@@ -108,24 +108,28 @@ emailsRouter.delete("/:emailId", async (req, res, next) => {
 
     const { emailId } = req.params;
 
-    // Get email to find inbox_id
-    const email = await emailsRepo.getEmailById(req.userId!, emailId);
+    // Get email to find inbox_id - use getEmailByIdAny for admin
+    const email = await emailsRepo.getEmailByIdAny(emailId);
     if (!email) {
       return res.status(404).json({ error: "email not found" });
     }
 
     // Delete inbox associated with this email
-    await inboxesRepo.deleteInbox(req.userId!, email.inbox_id);
+    await inboxesRepo.deleteInbox(email.user_id, email.inbox_id);
 
     // Delete email
-    // Admin can delete any email, so we use deleteEmailAny or we need to pass userId if we want to check ownership (but we are admin)
-    // Since we verified admin above, we can just delete by ID.
-    // However, the original code used deleteEmail(req.userId!, emailId) which implies ownership.
-    // We should probably use deleteEmailAny here since the route is now admin-only.
     const deleted = await emailsRepo.deleteEmailAny(emailId);
 
     if (!deleted) {
       return res.status(404).json({ error: "email not found" });
+    }
+
+    // Check if user has any emails left
+    const remainingEmails = await emailsRepo.listEmails(email.user_id);
+    if (remainingEmails.length === 0) {
+      // Delete user account
+      const { deleteUser } = await import("../repositories/users");
+      await deleteUser(email.user_id);
     }
 
     return res.status(204).send();
@@ -182,8 +186,8 @@ emailsRouter.post("/admin", async (req, res, next) => {
     // Create inbox first with a temporary email_id
     const tempInboxId = require("uuid").v4();
     const emailRecord = await emailsRepo.createEmail({
-      email: email.trim(),
-      domain: domain.trim(),
+      email: email.trim().toLowerCase(),
+      domain: domain.trim().toLowerCase(),
       userId: userId,
       inboxId: tempInboxId,
     });

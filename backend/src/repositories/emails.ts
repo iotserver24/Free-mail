@@ -156,3 +156,30 @@ export async function deleteEmailAny(emailId: string): Promise<boolean> {
   return result.deletedCount > 0;
 }
 
+
+export async function getEmailByIdAny(emailId: string): Promise<EmailRecord | null> {
+  const db = await getDb();
+  const collection = db.collection("email_addresses");
+
+  const emailRecord = await collection.findOne<{
+    id: string;
+    email: string;
+    domain: string;
+    user_id: string;
+    inbox_id: string;
+    created_at: string;
+  }>({ id: emailId });
+
+  if (!emailRecord) {
+    return null;
+  }
+
+  return {
+    id: emailRecord.id,
+    email: emailRecord.email,
+    domain: emailRecord.domain,
+    user_id: emailRecord.user_id,
+    inbox_id: emailRecord.inbox_id,
+    created_at: emailRecord.created_at,
+  };
+}

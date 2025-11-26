@@ -57,7 +57,7 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
             return res.status(400).json({ error: "invalid domain" });
         }
 
-        const email = `${username}@${domainRecord.domain}`;
+        const email = `${username.toLowerCase()}@${domainRecord.domain.toLowerCase()}`;
 
         const existingUser = await getUserByEmail(email);
         if (existingUser) {
@@ -78,7 +78,7 @@ usersRouter.post("/", requireAuth, async (req, res, next) => {
             email,
             password: password || undefined,
             displayName: fullname || details,
-            personalEmail: personal_email,
+            personalEmail: personal_email.toLowerCase(),
             permanentDomain: domainRecord.domain,
             ...(inviteToken ? { inviteToken } : {}),
             ...(inviteTokenExpires ? { inviteTokenExpires } : {}),
@@ -181,6 +181,44 @@ usersRouter.patch("/:id", requireAuth, async (req, res, next) => {
         }
 
         return res.json({ user: updatedUser });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Delete user (Admin only)
+usersRouter.delete("/:id", requireAuth, async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const currentUser = (req as any).user;
+
+        if (currentUser.role !== "admin") {
+            return res.status(403).json({ error: "forbidden: admin only" });
+        }
+
+        const { deleteUser } = await import("../repositories/users");
+        // We should also delete their emails and inboxes to be clean, 
+        // but for now let's just delete the user as requested. 
+        // The DB might have foreign keys or we might leave orphans if not careful.
+        // Ideally we should list emails and delete them first.
+
+        const { listEmails, deleteEmailAny } = await import("../repositories/emails");
+        const { deleteInbox } = await import("../repositories/inboxes");
+
+        const userEmails = await listEmails(id);
+        for (const email of userEmails) {
+            if (email.inbox_id) {
+                await deleteInbox(id, email.inbox_id);
+            }
+            await deleteEmailAny(email.id);
+        }
+
+        const deleted = await deleteUser(id);
+        if (!deleted) {
+            return res.status(404).json({ error: "user not found" });
+        }
+
+        return res.status(204).send();
     } catch (error) {
         next(error);
     }

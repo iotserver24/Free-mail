@@ -176,12 +176,12 @@
                     <td class="px-6 py-4">
                       <div class="flex items-center">
                         <img
-                          :src="user.avatarUrl || 'https://via.placeholder.com/40'"
+                          :src="user.avatar_url || 'https://via.placeholder.com/40'"
                           alt=""
                           class="h-10 w-10 rounded-full object-cover mr-3 border border-gray-600"
                         />
                         <div>
-                          <div class="font-medium text-white">{{ user.displayName || user.username }}</div>
+                          <div class="font-medium text-white">{{ user.display_name || user.username }}</div>
                           <div class="text-sm text-gray-400">{{ user.email }}</div>
                         </div>
                       </div>
@@ -206,6 +206,12 @@
                         class="text-blue-400 hover:text-blue-300 text-xs font-medium border border-blue-400/30 px-3 py-1 rounded hover:bg-blue-400/10 transition-colors"
                       >
                         Manage Emails
+                      </button>
+                      <button 
+                        @click="deleteUser(user.id)" 
+                        class="text-red-400 hover:text-red-300 text-xs font-medium border border-red-400/30 px-3 py-1 rounded hover:bg-red-400/10 transition-colors ml-2"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -274,6 +280,7 @@
                   <th class="px-4 py-2">Email Address</th>
                   <th class="px-4 py-2">Created</th>
                   <th class="px-4 py-2">Inbox ID</th>
+                  <th class="px-4 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-800">
@@ -281,6 +288,14 @@
                   <td class="px-4 py-3 text-white">{{ email.email }}</td>
                   <td class="px-4 py-3 text-gray-400">{{ new Date(email.created_at).toLocaleDateString() }}</td>
                   <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ email.inbox_id }}</td>
+                  <td class="px-4 py-3">
+                    <button 
+                      @click="deleteEmail(email.id)" 
+                      class="text-red-400 hover:text-red-300 text-xs font-medium border border-red-400/30 px-2 py-1 rounded hover:bg-red-400/10 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="userEmails.length === 0">
                   <td colspan="3" class="px-4 py-8 text-center text-gray-500">No emails found for this user.</td>
@@ -394,6 +409,21 @@ async function addUserEmail() {
   }
 }
 
+async function deleteEmail(emailId: string) {
+  if (!confirm('Are you sure you want to delete this email? This action cannot be undone.')) return;
+
+  try {
+    await api(`/api/emails/${emailId}`, {
+      method: 'DELETE',
+    });
+    
+    toasts.push({ title: 'Success', message: 'Email deleted successfully', variant: 'success' });
+    await fetchUserEmails(selectedUser.value.id);
+  } catch (e: any) {
+    toasts.push({ title: 'Error', message: e.data?.error || 'Failed to delete email', variant: 'error' });
+  }
+}
+
 async function fetchDomains() {
   try {
     const data = await api<DomainRecord[]>('/api/domains');
@@ -412,6 +442,21 @@ async function fetchUsers() {
     users.value = data;
   } catch (e) {
     console.error('Failed to fetch users', e);
+  }
+}
+
+async function deleteUser(userId: string) {
+  if (!confirm('Are you sure you want to delete this user? All their data will be lost.')) return;
+
+  try {
+    await api(`/api/users/${userId}`, {
+      method: 'DELETE',
+    });
+    
+    toasts.push({ title: 'Success', message: 'User deleted successfully', variant: 'success' });
+    await fetchUsers();
+  } catch (e: any) {
+    toasts.push({ title: 'Error', message: e.data?.error || 'Failed to delete user', variant: 'error' });
   }
 }
 
