@@ -3,9 +3,20 @@ import path from "path";
 
 // Initialize Firebase Admin SDK
 // Try environment variables first (for production/deployment)
-const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+if (privateKey) {
+    // Remove surrounding quotes if present
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+    }
+    // Replace literal \n with actual newlines
+    privateKey = privateKey.replace(/\\n/g, '\n');
+}
+
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 const projectId = process.env.FIREBASE_PROJECT_ID;
+
+let messaging: admin.messaging.Messaging | null = null;
 
 try {
     if (privateKey && clientEmail && projectId) {
@@ -20,18 +31,33 @@ try {
     } else {
         // Fallback to key file
         const serviceAccountPath = path.resolve(__dirname, "../../free-mail-44517-firebase-adminsdk-fbsvc-11f18455b9.json");
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccountPath),
-        });
-        console.log("Firebase Admin SDK initialized from key file");
+        // Check if file exists before trying to use it
+        const fs = require('fs');
+        if (fs.existsSync(serviceAccountPath)) {
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccountPath),
+            });
+            console.log("Firebase Admin SDK initialized from key file");
+        } else {
+            console.warn("Firebase key file not found and environment variables missing. Notifications will be disabled.");
+        }
+    }
+
+    // Only initialize messaging if app is initialized
+    if (admin.apps.length > 0) {
+        messaging = admin.messaging();
     }
 } catch (error) {
     console.error("Failed to initialize Firebase Admin SDK:", error);
 }
 
-export const messaging = admin.messaging();
+export { messaging };
 
 export async function sendNewEmailNotification(token: string, title: string, body: string) {
+    if (!messaging) {
+        console.warn("Firebase Messaging not initialized. Skipping notification.");
+        return;
+    }
     try {
         await messaging.send({
             token,
