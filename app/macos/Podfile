@@ -28,6 +28,12 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Force older Firebase version compatible with Xcode 15.0 / Swift 5.9
+  pod 'Firebase/Core', '10.27.0'
+  pod 'Firebase/Messaging', '10.27.0'
+  pod 'FirebaseCore', '10.27.0'
+  pod 'FirebaseCoreInternal', '10.27.0'
+
   flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
   
   post_install do |installer|
