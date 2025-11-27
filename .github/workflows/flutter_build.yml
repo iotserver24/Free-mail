@@ -215,65 +215,65 @@ jobs:
           name: free-mail-ios-app
           path: app/build/ios/iphoneos/Runner.app
 
-  build_macos_intel:
-    name: Build macOS (Intel)
-    runs-on: macos-13
-    defaults:
-      run:
-        working-directory: ./app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-      
-      - run: chmod +x ./set_app_name.sh
-      - run: ./set_app_name.sh
-      - run: flutter pub get
-      - run: flutter config --enable-macos-desktop
-      - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
-      
-      - name: Zip App
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r ../../../../../free-mail-macos-intel.zip Free\ Mail.app
-          
-      - uses: actions/upload-artifact@v4
-        with:
-          name: free-mail-macos-intel
-          path: app/free-mail-macos-intel.zip
+#   build_macos_intel:
+#     name: Build macOS (Intel)
+#     runs-on: macos-13
+#     defaults:
+#       run:
+#         working-directory: ./app
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: subosito/flutter-action@v2
+#         with:
+#           channel: 'stable'
+#       
+#       - run: chmod +x ./set_app_name.sh
+#       - run: ./set_app_name.sh
+#       - run: flutter pub get
+#       - run: flutter config --enable-macos-desktop
+#       - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
+#       
+#       - name: Zip App
+#         run: |
+#           cd build/macos/Build/Products/Release
+#           zip -r ../../../../../free-mail-macos-intel.zip Free\ Mail.app
+#           
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: free-mail-macos-intel
+#           path: app/free-mail-macos-intel.zip
 
-  build_macos_arm:
-    name: Build macOS (Apple Silicon)
-    runs-on: macos-14
-    defaults:
-      run:
-        working-directory: ./app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-      
-      - run: chmod +x ./set_app_name.sh
-      - run: ./set_app_name.sh
-      - run: flutter pub get
-      - run: flutter config --enable-macos-desktop
-      - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
-      
-      - name: Zip App
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r ../../../../../free-mail-macos-arm.zip Free\ Mail.app
-          
-      - uses: actions/upload-artifact@v4
-        with:
-          name: free-mail-macos-arm
-          path: app/free-mail-macos-arm.zip
+#   build_macos_arm:
+#     name: Build macOS (Apple Silicon)
+#     runs-on: macos-14
+#     defaults:
+#       run:
+#         working-directory: ./app
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: subosito/flutter-action@v2
+#         with:
+#           channel: 'stable'
+#       
+#       - run: chmod +x ./set_app_name.sh
+#       - run: ./set_app_name.sh
+#       - run: flutter pub get
+#       - run: flutter config --enable-macos-desktop
+#       - run: flutter build macos --release --dart-define=BACKEND_URL=${{ vars.BACKEND_URL }}
+#       
+#       - name: Zip App
+#         run: |
+#           cd build/macos/Build/Products/Release
+#           zip -r ../../../../../free-mail-macos-arm.zip Free\ Mail.app
+#           
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: free-mail-macos-arm
+#           path: app/free-mail-macos-arm.zip
 
   create_release:
     name: Create GitHub Release
-    needs: [build_android, build_windows, build_linux, build_ios, build_macos_intel, build_macos_arm]
+    needs: [build_android, build_windows, build_linux, build_ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -300,5 +300,5 @@ jobs:
             artifacts/free-mail-linux-x64/free-mail-linux-x64.deb
             artifacts/free-mail-linux-x64/*.rpm
             artifacts/free-mail-ios-app/Runner.app
-            artifacts/free-mail-macos-intel/free-mail-macos-intel.zip
-            artifacts/free-mail-macos-arm/free-mail-macos-arm.zip
+#            artifacts/free-mail-macos-intel/free-mail-macos-intel.zip
+#            artifacts/free-mail-macos-arm/free-mail-macos-arm.zip
