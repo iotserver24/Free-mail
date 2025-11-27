@@ -97,7 +97,8 @@ class NotificationService {
           id: message.hashCode,
           title: message.notification!.title ?? 'New Email',
           body: message.notification!.body ?? '',
-          payload: message.data['messageId'], // Assuming backend sends this
+          payload: message.data['messageId']
+              ?.toString(), // Assuming backend sends this
         );
       }
     });

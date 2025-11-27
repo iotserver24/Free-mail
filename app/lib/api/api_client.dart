@@ -100,6 +100,7 @@ class ApiClient extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    await _loadUserFromPrefs();
     await _initDio();
     await _hydrateExistingSession();
   }
@@ -161,14 +162,17 @@ class ApiClient extends ChangeNotifier {
         _user =
             _normalizeUser(Map<String, dynamic>.from(payload["user"] as Map));
         _isLoggedIn = true;
+        await _saveUserToPrefs();
       } else {
         _user = null;
         _isLoggedIn = false;
+        await _clearUserFromPrefs();
       }
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
         _user = null;
         _isLoggedIn = false;
+        await _clearUserFromPrefs();
       }
     } finally {
       notifyListeners();
@@ -241,6 +245,7 @@ class ApiClient extends ChangeNotifier {
       DesktopService().stopBackgroundCheck();
       _isLoggedIn = false;
       _user = null;
+      await _clearUserFromPrefs();
       notifyListeners();
     }
   }
@@ -734,6 +739,42 @@ class ApiClient extends ChangeNotifier {
     );
 
     return normalized;
+  }
+
+  Future<void> _saveUserToPrefs() async {
+    if (_user == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_user_profile', jsonEncode(_user));
+    } catch (_) {
+      // Ignore
+    }
+  }
+
+  Future<void> _loadUserFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('cached_user_profile');
+      if (jsonStr != null) {
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is Map) {
+          _user = _normalizeUser(Map<String, dynamic>.from(decoded));
+          _isLoggedIn = true;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      // Ignore
+    }
+  }
+
+  Future<void> _clearUserFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cached_user_profile');
+    } catch (_) {
+      // Ignore
+    }
   }
 
   void startPolling() {

@@ -10,9 +10,15 @@ import '../models/compose_context.dart';
 import 'compose_screen.dart';
 
 class MessageDetailScreen extends StatefulWidget {
-  final Map<String, dynamic> message;
+  final Map<String, dynamic>? message;
+  final String? messageId;
 
-  const MessageDetailScreen({super.key, required this.message});
+  const MessageDetailScreen({
+    super.key,
+    this.message,
+    this.messageId,
+  }) : assert(message != null || messageId != null,
+            'Either message or messageId must be provided');
 
   @override
   State<MessageDetailScreen> createState() => _MessageDetailScreenState();
@@ -37,32 +43,52 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
       _error = null;
     });
 
-    // Mark as read if unread
-    if (widget.message['is_read'] != true) {
-      client.updateMessageStatus(widget.message['id'] as String, true);
-    }
-
     try {
-      if (widget.message['thread_id'] != null) {
+      Map<String, dynamic> initialMessage;
+      if (widget.message != null) {
+        initialMessage = widget.message!;
+      } else {
+        // Fetch message details first if we only have ID
+        initialMessage = await client.fetchMessageDetail(widget.messageId!);
+      }
+
+      // Mark as read if unread
+      if (initialMessage['is_read'] != true) {
+        client.updateMessageStatus(initialMessage['id'] as String, true);
+      }
+
+      if (initialMessage['thread_id'] != null) {
         final records =
-            await client.fetchThread(widget.message['thread_id'] as String);
+            await client.fetchThread(initialMessage['thread_id'] as String);
         if (!mounted) return;
         setState(() {
-          _threadMessages = records.isNotEmpty ? records : [widget.message];
+          _threadMessages = records.isNotEmpty ? records : [initialMessage];
         });
       } else {
-        final detail =
-            await client.fetchMessageDetail(widget.message['id'] as String);
-        if (!mounted) return;
-        setState(() {
-          _threadMessages = [detail];
-        });
+        // If we fetched it by ID, we might already have the detail, but let's be consistent
+        // If we started with a partial message (from list), we might want full detail.
+        // If we started with ID, we already fetched detail above.
+        if (widget.message == null) {
+          if (!mounted) return;
+          setState(() {
+            _threadMessages = [initialMessage];
+          });
+        } else {
+          final detail =
+              await client.fetchMessageDetail(initialMessage['id'] as String);
+          if (!mounted) return;
+          setState(() {
+            _threadMessages = [detail];
+          });
+        }
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = 'Failed to load conversation';
-        _threadMessages = [widget.message];
+        if (widget.message != null) {
+          _threadMessages = [widget.message!];
+        }
       });
     } finally {
       if (mounted) {
@@ -74,9 +100,10 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
   }
 
   void _summarize(BuildContext context) {
+    if (_threadMessages.isEmpty) return;
+    final message = _threadMessages.first;
     final client = Provider.of<ApiClient>(context, listen: false);
-    final body =
-        widget.message['body_plain'] ?? widget.message['body_html'] ?? '';
+    final body = message['body_plain'] ?? message['body_html'] ?? '';
 
     if (body == null || body.isEmpty) return;
 
@@ -108,13 +135,15 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
   }
 
   void _handleReply() {
-    final target = widget.message;
+    if (_threadMessages.isEmpty) return;
+    final target = _threadMessages.last; // Reply to latest
     final contextPayload = _buildReplyContext(target);
     _openComposer(contextPayload);
   }
 
   void _handleForward() {
-    final target = widget.message;
+    if (_threadMessages.isEmpty) return;
+    final target = _threadMessages.last;
     final contextPayload = _buildForwardContext(target);
     _openComposer(contextPayload);
   }
@@ -218,9 +247,29 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final subject = widget.message['subject'] as String? ?? '(No Subject)';
-    final sender = widget.message['sender_email'] as String? ?? 'Unknown';
-    final createdAt = widget.message['created_at'] as String?;
+    if (_loadingThread && _threadMessages.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Loading...')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_threadMessages.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(
+          child:
+              _error != null ? Text(_error!) : const Text('Message not found'),
+        ),
+      );
+    }
+
+    // Use the first message for header info, or the one that matches the ID if possible
+    final displayMessage = _threadMessages.first;
+
+    final subject = displayMessage['subject'] as String? ?? '(No Subject)';
+    final sender = displayMessage['sender_email'] as String? ?? 'Unknown';
+    final createdAt = displayMessage['created_at'] as String?;
     final createdDate = createdAt != null ? DateTime.tryParse(createdAt) : null;
     final createdAtLabel =
         createdDate != null ? _formatTimestamp(createdDate) : null;
@@ -242,13 +291,13 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
             onPressed: () => _summarize(context),
             tooltip: 'Summarize',
           ),
-          if (widget.message['folder'] == 'trash')
+          if (displayMessage['folder'] == 'trash')
             IconButton(
               icon: const Icon(Icons.restore_from_trash),
               onPressed: () {
                 final client = Provider.of<ApiClient>(context, listen: false);
                 client.moveMessageToFolder(
-                    widget.message['id'] as String, 'inbox');
+                    displayMessage['id'] as String, 'inbox');
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Restored to Inbox')),
@@ -262,7 +311,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
               onPressed: () {
                 final client = Provider.of<ApiClient>(context, listen: false);
                 client.moveMessageToFolder(
-                    widget.message['id'] as String, 'trash');
+                    displayMessage['id'] as String, 'trash');
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Moved to Bin')),
@@ -275,7 +324,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
               if (value == 'mark_unread') {
                 final client = Provider.of<ApiClient>(context, listen: false);
                 client.updateMessageStatus(
-                    widget.message['id'] as String, false);
+                    displayMessage['id'] as String, false);
                 Navigator.pop(context);
               }
             },
@@ -295,11 +344,11 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
           _MessageHeader(
             subject: subject,
             sender: sender,
-            recipient: widget.message['recipient_emails'] is List
-                ? (widget.message['recipient_emails'] as List)
+            recipient: displayMessage['recipient_emails'] is List
+                ? (displayMessage['recipient_emails'] as List)
                     .cast<String>()
                     .join(', ')
-                : widget.message['recipient_emails']?.toString() ?? '—',
+                : displayMessage['recipient_emails']?.toString() ?? '—',
             createdAt: createdAtLabel,
           ),
           Expanded(
