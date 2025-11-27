@@ -2,7 +2,9 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Free Mail"
-!define PRODUCT_VERSION "1.0.0"
+!ifndef PRODUCT_VERSION
+  !define PRODUCT_VERSION "1.0.0"
+!endif
 !define PRODUCT_PUBLISHER "CTO"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\free_mail.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
@@ -13,8 +15,8 @@
 
 ; MUI Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "windows\runner\resources\app_icon.ico"
+!define MUI_UNICON "windows\runner\resources\app_icon.ico"
 
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME

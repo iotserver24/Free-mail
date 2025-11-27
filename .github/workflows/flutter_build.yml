@@ -128,7 +128,7 @@ jobs:
         shell: pwsh
         run: |
            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-           & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
+           & "C:\Program Files (x86)\NSIS\makensis.exe" /DPRODUCT_VERSION="${{ github.event.inputs.version }}" installer.nsi
            
       - uses: actions/upload-artifact@v4
         with:
