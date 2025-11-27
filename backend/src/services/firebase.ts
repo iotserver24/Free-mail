@@ -11,6 +11,10 @@ if (privateKey) {
     }
     // Replace literal \n with actual newlines
     privateKey = privateKey.replace(/\\n/g, '\n');
+
+    console.log("Debug: Private Key length:", privateKey.length);
+    console.log("Debug: Private Key start:", privateKey.substring(0, 50));
+    console.log("Debug: Private Key contains newline:", privateKey.includes('\n'));
 }
 
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
