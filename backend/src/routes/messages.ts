@@ -120,7 +120,7 @@ interface AttachmentPayload {
 
 messagesRouter.post("/", async (req, res, next) => {
   try {
-    const { from, to, cc, bcc, subject, html, text, threadId, attachments = [] }: { from?: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; threadId?: string | null; attachments?: AttachmentPayload[] } = req.body;
+    const { from, to, cc, bcc, subject, html, text, threadId, attachments = [], inReplyTo, references }: { from?: string; to: string[]; cc?: string[]; bcc?: string[]; subject: string; html?: string; text?: string; threadId?: string | null; attachments?: AttachmentPayload[]; inReplyTo?: string; references?: string[] } = req.body;
 
     if (!Array.isArray(to) || to.length === 0) {
       return res.status(400).json({ error: "at least one recipient required" });
@@ -147,6 +147,23 @@ messagesRouter.post("/", async (req, res, next) => {
       })
     );
 
+    // Generate a unique Message-ID
+    const messageId = `<${crypto.randomUUID()}@megavault.pw>`;
+
+    const headers: Record<string, string> = {
+      "Message-ID": messageId,
+    };
+
+    if (inReplyTo) {
+      headers["In-Reply-To"] = `<${inReplyTo}>`;
+    }
+
+    if (references && Array.isArray(references) && references.length > 0) {
+      // Ensure references are wrapped in angle brackets if not already
+      const formattedRefs = references.map(ref => ref.startsWith('<') ? ref : `<${ref}>`).join(' ');
+      headers["References"] = formattedRefs;
+    }
+
     await sendBrevoMail({
       from: from.trim(),
       to,
@@ -156,6 +173,7 @@ messagesRouter.post("/", async (req, res, next) => {
       html,
       text,
       attachments: resolvedAttachments,
+      headers,
     });
 
     // Get inbox_id from the "from" email address if provided

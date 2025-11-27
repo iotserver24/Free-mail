@@ -58,6 +58,7 @@ export interface MessageRecord {
   created_at: string;
   updated_at: string;
   attachments?: AttachmentRecord[];
+  references?: string[];
 }
 
 export interface ApiError {

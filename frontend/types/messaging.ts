@@ -14,6 +14,8 @@ export interface ComposePayload {
   html?: string;
   attachments?: AttachmentPayload[];
   threadId?: string | null;
+  inReplyTo?: string;
+  references?: string[];
 }
 
 export interface ComposeContext {
@@ -23,5 +25,7 @@ export interface ComposeContext {
   subject?: string;
   body?: string;
   threadId?: string | null;
+  inReplyTo?: string;
+  references?: string[];
 }
 

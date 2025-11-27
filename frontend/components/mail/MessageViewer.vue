@@ -77,12 +77,57 @@ function getPlainBody(entry: MessageRecord) {
   return "";
 }
 
-function quoteBody(text: string) {
+function parseSender(sender: string): { name: string; email: string } {
+  const match = sender.match(/^(.*?)\s*<(.+)>$/);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
+  return { name: "", email: sender.trim() };
+}
+
+function formatReplyDate(dateStr: string): string {
+  if (!dateStr) return "Unknown date";
+  const date = new Date(dateStr);
+  // Format: "Thu, 27 Nov 2025 at 15:56"
+  // We can use Intl.DateTimeFormat or manual formatting.
+  // Manual is safer for exact match.
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  const dayName = days[date.getDay()];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  
+  return `${dayName}, ${day} ${month} ${year} at ${hours}:${minutes}`;
+}
+
+function quoteBody(text: string, senderRaw: string, timestamp: string) {
   if (!text) return "";
-  return text
+  
+  const { name, email } = parseSender(senderRaw || "Unknown");
+  const dateStr = formatReplyDate(timestamp);
+  
+  let header = "";
+  if (name) {
+    header = `On ${dateStr}, ${name} <${email}> wrote:`;
+  } else {
+    header = `On ${dateStr}, ${email} wrote:`;
+  }
+
+  const quotedBody = text
     .split(/\r?\n/)
-    .map((line) => `> ${line}`)
+    .map((line) => {
+      if (line.startsWith(">")) {
+        return `>${line}`;
+      }
+      return `> ${line}`;
+    })
     .join("\n");
+    
+  return `${header}\n${quotedBody}`;
 }
 
 function buildReplyContext(entry: MessageRecord) {
@@ -96,13 +141,17 @@ function buildReplyContext(entry: MessageRecord) {
   }
 
   const subject = entry.subject?.match(/^re:/i) ? entry.subject : `Re: ${entry.subject || ""}`;
-  const quoted = quoteBody(getPlainBody(entry));
-  const header = `On ${formatDateTime(entry.created_at)}, ${entry.sender_email || "Unknown"} wrote:\n`;
+  const quoted = quoteBody(getPlainBody(entry), entry.sender_email || "Unknown", entry.created_at || "");
+  
   return {
     to,
     subject: subject.trim(),
-    body: `\n\n${header}${quoted}\n\n`,
+    body: `\n\n${quoted}\n\n`,
     threadId: entry.thread_id,
+    inReplyTo: entry.id,
+    references: Array.isArray(entry.references) 
+      ? entry.references 
+      : (typeof entry.references === 'string' ? [entry.references] : undefined),
   };
 }
 

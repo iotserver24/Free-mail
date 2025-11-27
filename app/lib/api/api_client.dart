@@ -409,6 +409,8 @@ class ApiClient extends ChangeNotifier {
     List<String>? bcc,
     String? threadId,
     List<Map<String, dynamic>>? attachments,
+    String? inReplyTo,
+    String? references,
   }) async {
     if (_dio == null) return false;
     try {
@@ -417,7 +419,10 @@ class ApiClient extends ChangeNotifier {
         "to": to,
         if (cc != null && cc.isNotEmpty) "cc": cc,
         if (bcc != null && bcc.isNotEmpty) "bcc": bcc,
+        if (bcc != null && bcc.isNotEmpty) "bcc": bcc,
         if (threadId != null) "threadId": threadId,
+        if (inReplyTo != null) "inReplyTo": inReplyTo,
+        if (references != null) "references": references,
         "subject": subject,
         "text": body,
         "html": "<p>${body.replaceAll("\n", "<br />")}</p>",

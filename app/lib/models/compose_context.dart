@@ -5,6 +5,8 @@ class ComposeContext {
   final String? subject;
   final String? body;
   final String? threadId;
+  final String? inReplyTo;
+  final String? references;
 
   const ComposeContext({
     this.to,
@@ -13,6 +15,8 @@ class ComposeContext {
     this.subject,
     this.body,
     this.threadId,
+    this.inReplyTo,
+    this.references,
   });
 
   ComposeContext copyWith({
@@ -22,6 +26,8 @@ class ComposeContext {
     String? subject,
     String? body,
     String? threadId,
+    String? inReplyTo,
+    String? references,
   }) {
     return ComposeContext(
       to: to ?? this.to,
@@ -30,7 +36,8 @@ class ComposeContext {
       subject: subject ?? this.subject,
       body: body ?? this.body,
       threadId: threadId ?? this.threadId,
+      inReplyTo: inReplyTo ?? this.inReplyTo,
+      references: references ?? this.references,
     );
   }
 }
-

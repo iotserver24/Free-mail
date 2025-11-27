@@ -169,15 +169,23 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     }
     final subject = _ensurePrefix(entry['subject'] as String?, 'Re');
     final timestamp = entry['created_at'] as String?;
-    final sender = entry['sender_email'] as String? ?? 'Unknown';
-    final quoted = _quoteBody(_plainBody(entry) ?? '',
-        sender: sender, timestamp: timestamp);
+    final senderRaw = entry['sender_email'] as String? ?? 'Unknown';
+
+    final quoted = _quoteBody(
+      _plainBody(entry) ?? '',
+      senderRaw: senderRaw,
+      timestamp: timestamp,
+    );
 
     return ComposeContext(
       to: to,
       subject: subject,
       body: '\n\n$quoted\n\n',
       threadId: entry['thread_id'] as String?,
+      inReplyTo: entry['message_id'] as String?,
+      references: entry['references'] is List
+          ? (entry['references'] as List).cast<String>().join(' ')
+          : entry['references'] as String?,
     );
   }
 
@@ -227,15 +235,64 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     return null;
   }
 
-  String _quoteBody(String body, {required String sender, String? timestamp}) {
-    final formattedDate =
-        timestamp != null ? _formatTimestamp(DateTime.tryParse(timestamp)) : '';
-    final header = 'On $formattedDate, $sender wrote:\n';
-    final quoted = body
-        .split(RegExp(r'\r?\n'))
-        .map((line) => '> ${line.trimRight()}')
-        .join('\n');
-    return '$header$quoted';
+  String _quoteBody(
+    String body, {
+    required String senderRaw,
+    String? timestamp,
+  }) {
+    final parsedSender = _parseSender(senderRaw);
+    final name = parsedSender['name'];
+    final email = parsedSender['email'];
+
+    String header;
+    String dateStr = '';
+    String timeStr = '';
+
+    if (timestamp != null) {
+      final date = DateTime.tryParse(timestamp);
+      if (date != null) {
+        // Convert to IST (UTC+5:30)
+        final istDate = date.toUtc().add(const Duration(hours: 5, minutes: 30));
+        dateStr = DateFormat('EEE, d MMM yyyy').format(istDate);
+        timeStr = DateFormat('HH:mm').format(istDate);
+      }
+    }
+
+    // Format: On Thu, 27 Nov 2025 at 15:56, anish kumar <iotserver24@gmail.com> wrote:
+    // Or: On Thu, 27 Nov 2025 at 15:56, <iotserver24@gmail.com> wrote: (if no name)
+
+    final dateTimePart =
+        dateStr.isNotEmpty ? 'On $dateStr at $timeStr' : 'On $senderRaw';
+
+    if (name != null && name.isNotEmpty) {
+      header = '$dateTimePart, $name <$email> wrote:';
+    } else {
+      header = '$dateTimePart, $email wrote:';
+    }
+
+    final quoted = body.split(RegExp(r'\r?\n')).map((line) {
+      if (line.startsWith('>')) {
+        return '>$line'; // Increase depth
+      }
+      return '> $line'; // Add first level quote
+    }).join('\n');
+
+    return '$header\n$quoted';
+  }
+
+  Map<String, String?> _parseSender(String senderRaw) {
+    // Tries to parse "Name <email>" or just "email"
+    final match = RegExp(r'^([^<]+)\s*<([^>]+)>$').firstMatch(senderRaw);
+    if (match != null) {
+      return {
+        'name': match.group(1)?.trim(),
+        'email': match.group(2)?.trim(),
+      };
+    }
+    return {
+      'name': null,
+      'email': senderRaw.trim(),
+    };
   }
 
   String _formatTimestamp(DateTime? date) {

@@ -198,6 +198,12 @@ async function handleSend() {
       if (props.context?.threadId) {
         payload.threadId = props.context.threadId;
       }
+      if (props.context?.inReplyTo) {
+        payload.inReplyTo = props.context.inReplyTo;
+      }
+      if (props.context?.references) {
+        payload.references = props.context.references;
+      }
       await props.submit(payload);
     }
     resetForm();

@@ -24,6 +24,9 @@ export interface SendMailInput {
     content: Buffer;
     contentType?: string | undefined;
   }[];
+  headers?: Record<string, string>;
+  inReplyTo?: string;
+  references?: string[];
 }
 
 export async function sendBrevoMail(payload: SendMailInput) {
