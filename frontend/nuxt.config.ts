@@ -28,6 +28,7 @@ export default defineNuxtConfig({
           content: "Gmail-like dashboard for managing custom domains and inboxes",
         },
       ],
+      link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
     },
   },
   tailwindcss: {

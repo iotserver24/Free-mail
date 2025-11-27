@@ -359,6 +359,42 @@ async function handleLogout() {
             <p v-if="!mail.emails.length" class="text-slate-500">No email identities yet. {{ auth.isAdmin ? 'Create a domain first.' : 'Ask an admin to assign one.' }}</p>
           </div>
         </section>
+
+        <!-- Support Section -->
+        <section class="glass-panel rounded-3xl p-6 lg:col-span-2">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Support</p>
+              <h2 class="text-xl font-semibold">Support the Project</h2>
+            </div>
+            <span class="text-2xl">❤️</span>
+          </div>
+          <p class="text-sm text-slate-400 mb-6">
+            If you find Free-mail useful, consider supporting the development to keep the project alive and growing.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <a
+              href="https://razorpay.me/@megavault"
+              target="_blank"
+              class="flex items-center gap-2 rounded-2xl bg-[#3395ff] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-[#2884e5] transition-colors"
+            >
+              <span>Donate via Razorpay</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+            <a
+              href="https://buymeacoffee.com/r3ap3redit"
+              target="_blank"
+              class="flex items-center gap-2 rounded-2xl bg-[#FFDD00] px-6 py-3 text-sm font-bold text-black shadow-lg shadow-yellow-500/20 hover:bg-[#FFDD00]/90 transition-colors"
+            >
+              <span>Buy Me a Coffee</span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+        </section>
       </div>
     </main>
   </div>

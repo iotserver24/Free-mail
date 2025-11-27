@@ -1,142 +1,265 @@
-# FreeMail Setup Guide
+# Free-mail Project Setup Guide
 
-## 1. Database Setup
+This guide provides a comprehensive step-by-step walkthrough to set up and host the entire Free-mail ecosystem, including the Backend, Cloudflare Workers, Frontend, and Mobile App.
 
-First, you need to create the database tables. Run the initialization script:
+## Table of Contents
+
+1. [Prerequisites](#prerequisites)
+2. [Backend Setup](#backend-setup)
+3. [Cloudflare Worker Setup (Email Routing)](#cloudflare-worker-setup-email-routing)
+4. [Frontend Setup](#frontend-setup)
+5. [Mobile App Setup](#mobile-app-setup)
+6. [Services Configuration](#services-configuration)
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed and set up:
+
+- **Node.js** (v18+ recommended) & **pnpm**
+- **Flutter SDK** (for the mobile app)
+- **MongoDB** (Database)
+- **Cloudflare Account** (for Email Routing and Workers)
+- **Brevo (formerly Sendinblue) Account** (for SMTP email sending)
+- **Firebase Project** (for Push Notifications)
+- **Catbox Account** (Optional, for file hosting)
+- **OpenAI/Gemini API Key** (for AI features)
+
+---
+
+## Backend Setup
+
+The backend is built with Node.js and TypeScript. It handles API requests, database interactions, and email sending.
+
+### 1. Installation
+
+Navigate to the `backend` directory and install dependencies:
 
 ```bash
-# Using psql command line
-psql -h 193.24.208.154 -U postgres -d chat -f db/init.sql
-
-# Or connect and run manually
-psql -h 193.24.208.154 -U postgres -d chat
+cd backend
+pnpm install
 ```
 
-Then paste and run the contents of `db/init.sql` in the psql prompt.
+### 2. Environment Configuration
 
-## 2. Environment Variables
+Create a `.env` file in the `backend` directory based on `.env.example`.
 
-### Backend (.env)
-Update `backend/.env` with your credentials:
-- `ADMIN_EMAIL` - Your admin email for login
-- `ADMIN_PASSWORD` - Your admin password
-- `BREVO_SENDER` - Email address to send from (must be verified in Brevo)
-- `CF_WEBHOOK_SECRET` - Secret for Cloudflare webhook (optional but recommended)
+```bash
+cp .env.example .env
+```
 
-### Frontend (.env)
-Update `frontend/.env`:
-- `NUXT_PUBLIC_API_BASE` - Backend API URL (default: http://localhost:4000)
-- `NUXT_PUBLIC_CATBOX_USERHASH` - (Optional) Catbox user hash for authenticated uploads
+**Required Variables:**
 
-## 3. Cloudflare Email Routing Setup
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `PORT` | Server port | `4000` |
+| `FRONTEND_URL` | URL of your frontend | `http://localhost:3000` |
+| `MONGODB_URL` | MongoDB connection string | `mongodb://user:pass@host:port/db` |
+| `SESSION_SECRET` | Random string for session security | `your-secret-key` |
+| `ADMIN_EMAIL` | Initial admin email | `admin@example.com` |
+| `ADMIN_PASSWORD` | Initial admin password | `securepassword` |
 
-**Important**: Cloudflare Email Routing only supports sending to Workers, not direct HTTP endpoints. You must use a Cloudflare Worker as an intermediary.
+**Service Variables (See [Services Configuration](#services-configuration) for details):**
 
-### Step 1: Deploy the Email Webhook Worker
+- **Brevo (SMTP):** `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_USER`, `BREVO_SMTP_PASS`, `BREVO_SENDER`
+- **Cloudflare:** `CF_WEBHOOK_SECRET` (Must match the worker secret)
+- **Catbox:** `CATBOX_API_URL`
+- **AI:** `AI_ENABLED`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`
+- **Firebase:** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
 
-1. **Install Wrangler CLI**:
-   ```bash
-   npm install -g wrangler
-   ```
+### 3. Running the Backend
 
-2. **Login to Cloudflare**:
-   ```bash
-   wrangler login
-   ```
+**Development:**
 
-3. **Navigate to worker directory**:
-   ```bash
-   cd cloudflare-worker
-   ```
+```bash
+pnpm dev
+```
 
-4. **Set environment variables**:
-   ```bash
-   # Your backend URL (use ngrok for local testing)
-   wrangler secret put BACKEND_URL
-   # Enter: https://your-backend-url.com
-   
-   # Webhook secret (must match CF_WEBHOOK_SECRET in backend .env)
-   wrangler secret put WEBHOOK_SECRET
-   # Enter: super-secret
-   ```
+**Production:**
 
-5. **Deploy the worker**:
-   ```bash
-   wrangler deploy
-   ```
+```bash
+pnpm build
+pnpm start
+```
 
-### Step 2: Enable Email Routing in Cloudflare
-1. Go to your Cloudflare dashboard
-2. Select your domain
-3. Navigate to **Email** → **Email Routing**
-4. Enable Email Routing if not already enabled
+**Docker:**
 
-### Step 3: Create a Catch-All Route
-1. In Email Routing, go to **Routing** → **Addresses**
-2. Create a new route:
-   - **Email address**: `*@yourdomain.com` (catch-all)
-   - **Action**: **Send to a Worker**
-   - **Worker**: Select `email-webhook` (the worker you deployed)
+```bash
+docker build -t free-mail-backend .
+docker run -p 4000:4000 --env-file .env free-mail-backend
+```
 
-### Step 4: Local Testing with ngrok
+---
 
-For local development, expose your backend using ngrok:
+## Cloudflare Worker Setup (Email Routing)
 
-1. **Start your backend**:
-   ```bash
-   cd backend
-   npm run dev
-   ```
+The Cloudflare Worker intercepts incoming emails via Cloudflare Email Routing and forwards them to your backend via a webhook.
 
-2. **Start ngrok** (in another terminal):
-   ```bash
-   ngrok http 4000
-   ```
+### 1. Setup
 
-3. **Update worker's BACKEND_URL**:
-   ```bash
-   cd cloudflare-worker
-   wrangler secret put BACKEND_URL
-   # Enter your ngrok URL: https://xxxx.ngrok.io
-   wrangler deploy
-   ```
+Navigate to the `cloudflare-worker` directory:
 
-4. **Test**: Send an email to `test@yourdomain.com` and check your backend logs.
+```bash
+cd cloudflare-worker
+npm install
+```
 
-## 4. Testing the Setup
+### 2. Configuration (`wrangler.toml`)
 
-1. **Start Backend**:
-   ```bash
-   cd backend
-   npm run dev
-   ```
+Ensure your `wrangler.toml` is configured correctly. You can set variables directly in the file for development or use `wrangler secret` for production.
 
-2. **Start Frontend**:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+**Key Variables:**
 
-- Go to http://localhost:3000
-   - Use your `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`
+- `BACKEND_URL`: The public URL of your deployed backend (e.g., `https://api.yourdomain.com`).
+- `WEBHOOK_PATH`: The path to the webhook endpoint (default: `/api/webhooks/cloudflare`).
+- `WEBHOOK_SECRET`: A shared secret to authenticate requests (must match `CF_WEBHOOK_SECRET` in backend).
 
-4. **Test Email Reception**:
-   - Send an email to `anything@yourdomain.com`
-   - It should appear in your inbox after Cloudflare routes it
+### 3. Deployment
 
-## 5. Troubleshooting
+Deploy the worker to Cloudflare:
 
-### Database Connection Issues
-- Verify your database credentials in `backend/.env`
-- Ensure the database `chat` exists
-- Check SSL connection settings
+```bash
+npx wrangler deploy
+```
 
-### Email Not Appearing
-- Check Cloudflare Email Routing logs
-- Verify webhook URL is accessible (use ngrok for local testing)
-- Check backend logs for webhook errors
-- Verify `CF_WEBHOOK_SECRET` matches in both Cloudflare and backend
+**Setting Secrets (Recommended for Production):**
 
-### Webhook Format Issues
-Cloudflare's email format may vary. Check the actual payload in your backend logs and adjust `backend/src/routes/webhooks.ts` accordingly.
+```bash
+npx wrangler secret put BACKEND_URL
+# Enter your backend URL
+npx wrangler secret put WEBHOOK_SECRET
+# Enter your secret
+```
 
+### 4. Email Routing Configuration
+
+1. Go to your **Cloudflare Dashboard** > **Email** > **Email Routing**.
+2. Enable Email Routing.
+3. Go to **Routes**.
+4. Create a custom address (e.g., `*@yourdomain.com` or specific users) and set the **Destination** to **Worker**.
+5. Select your deployed `free-mail-route` worker.
+
+---
+
+## Frontend Setup
+
+The frontend is a Nuxt 3 application.
+
+### 1. Installation
+
+Navigate to the `frontend` directory:
+
+```bash
+cd frontend
+pnpm install
+```
+
+### 2. Environment Configuration
+
+Create a `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+**Variables:**
+
+- `NUXT_PUBLIC_API_BASE`: URL of your backend (e.g., `http://localhost:4000` or `https://api.yourdomain.com`).
+- `NUXT_PUBLIC_CATBOX_USERHASH`: (Optional) Your Catbox user hash for file uploads.
+
+### 3. Running the Frontend
+
+**Development:**
+
+```bash
+pnpm dev
+```
+
+**Production:**
+
+```bash
+pnpm build
+pnpm start
+```
+
+---
+
+## Mobile App Setup
+
+The mobile app is built with Flutter.
+
+### 1. Prerequisites
+
+Ensure you have Flutter installed and configured for your target platforms (Android/iOS).
+
+```bash
+flutter doctor
+```
+
+### 2. Firebase Configuration
+
+1. Create a project in the Firebase Console.
+2. **Android:** Download `google-services.json` and place it in `app/android/app/`.
+3. **iOS:** Download `GoogleService-Info.plist` and place it in `app/ios/Runner/`.
+
+### 3. Build and Run
+
+Navigate to the `app` directory:
+
+```bash
+cd app
+flutter pub get
+```
+
+**Run on device/emulator:**
+
+```bash
+flutter run
+```
+
+**Build APK (Android):**
+
+```bash
+flutter build apk --release
+```
+
+---
+
+## Services Configuration
+
+### Brevo (SMTP)
+
+1. Create an account at [Brevo](https://www.brevo.com/).
+2. Go to **SMTP & API**.
+3. Generate a new SMTP Key.
+4. Use these credentials in your backend `.env`:
+    - `BREVO_SMTP_HOST`: `smtp-relay.brevo.com`
+    - `BREVO_SMTP_PORT`: `587`
+    - `BREVO_SMTP_USER`: Your login email.
+    - `BREVO_SMTP_PASS`: Your generated SMTP key.
+
+### Firebase (FCM & Service Account)
+
+1. Go to **Project Settings** > **Service accounts**.
+2. Click **Generate new private key**.
+3. Open the downloaded JSON file.
+4. Copy the values to your backend `.env`:
+    - `FIREBASE_PROJECT_ID`: `project_id` from JSON.
+    - `FIREBASE_CLIENT_EMAIL`: `client_email` from JSON.
+    - `FIREBASE_PRIVATE_KEY`: `private_key` from JSON.
+
+    **Note on Private Key:** Copy the entire key including `-----BEGIN PRIVATE KEY-----` and `\n`. The backend automatically handles formatting (removing quotes, fixing newlines) so you can paste it directly or as a single line string in deployment dashboards like Railway/Render.
+
+### AI (OpenAI/Gemini)
+
+1. Get your API Key from OpenAI or a compatible provider (like Gemini via OpenAI compat layer).
+2. Set `AI_BASE_URL` (e.g., `https://api.openai.com/v1` or your custom endpoint).
+3. Set `AI_API_KEY`.
+4. Set `AI_MODEL` (e.g., `gpt-4o`, `gemini-1.5-pro`).
+
+### Catbox (File Storage)
+
+- Used for storing email attachments and profile pictures.
+- The app uses the public API `https://catbox.moe/user/api.php`.
+- No specific setup required for anonymous uploads, but `NUXT_PUBLIC_CATBOX_USERHASH` can be set in frontend for account binding.

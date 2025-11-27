@@ -10,6 +10,7 @@ import 'domains_screen.dart';
 import 'message_detail_screen.dart';
 import 'profile_screen.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -371,6 +372,62 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     icon: const Icon(Icons.person_outline),
                     label: const Text('Profile & settings'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Support the Project'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                  'If you find Free-mail useful, consider supporting the development.'),
+                              const SizedBox(height: 16),
+                              ListTile(
+                                leading: const Icon(Icons.payment,
+                                    color: Color(0xFF3395FF)),
+                                title: const Text('Donate via Razorpay'),
+                                onTap: () {
+                                  launchUrl(
+                                    Uri.parse('https://razorpay.me/@megavault'),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.coffee,
+                                    color: Color(0xFFFFDD00)),
+                                title: const Text('Buy Me a Coffee'),
+                                onTap: () {
+                                  launchUrl(
+                                    Uri.parse(
+                                        'https://buymeacoffee.com/r3ap3redit'),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.favorite_border),
+                    label: const Text('Donate me'),
                   ),
                   const SizedBox(height: 8),
                   FilledButton.icon(

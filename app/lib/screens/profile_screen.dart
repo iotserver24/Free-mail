@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../api/api_client.dart';
 import '../services/catbox_uploader.dart';
 import 'appearance_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -185,6 +186,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           )
                         : const Icon(Icons.save_outlined),
                     label: Text(_isSaving ? 'Saving…' : 'Save changes'),
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Support the Project',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DonationTile(
+                    title: 'Donate via Razorpay',
+                    icon: Icons.payment_outlined,
+                    color: const Color(0xFF3395FF),
+                    onTap: () => launchUrl(
+                      Uri.parse('https://razorpay.me/@megavault'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DonationTile(
+                    title: 'Buy Me a Coffee',
+                    icon: Icons.coffee_outlined,
+                    color: const Color(0xFFFFDD00),
+                    textColor: Colors.black,
+                    onTap: () => launchUrl(
+                      Uri.parse('https://buymeacoffee.com/r3ap3redit'),
+                      mode: LaunchMode.externalApplication,
+                    ),
                   ),
                 ],
               ),
@@ -504,4 +533,52 @@ String? _resolveAvatarUrl(String? baseUrl, String? avatarPath) {
     return '$baseUrl$trimmed';
   }
   return '$baseUrl/$trimmed';
+}
+
+class _DonationTile extends StatelessWidget {
+  const _DonationTile({
+    required this.title,
+    required this.icon,
+    required this.color,
+    this.textColor = Colors.white,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final Color textColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: textColor),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.open_in_new,
+                  color: textColor.withValues(alpha: 0.7), size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
